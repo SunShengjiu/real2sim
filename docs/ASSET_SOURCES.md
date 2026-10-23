@@ -1,5 +1,7 @@
 # Publication Media Sources
 
+Historical provenance for media retained from the original project page. The page and its media-generation tools were removed when extracting Real-to-Sim; commands and page descriptions below document the original build and are not runnable instructions for this checkout. None of these media is a reconstruction dependency.
+
 Prepared on 2026-10-14 from the author's supplied `Agentic_RSR_paper` folder.
 The author list, title, affiliations and reported numbers follow `main.tex`,
 `section/04_experiments.tex` and `tab/task_comparison.tex` in that source.
@@ -50,7 +52,7 @@ software license does not grant trademark or logo reuse rights.
 On 2026-10-15, the author requested a transparent background. The displayed
 `assets/hcl-lab-logo.png` preserves the 1024x1024 grid, removes the near-black
 background and feathers/unmattes dark JPEG edges. The original JPEG is retained.
-Regenerate with `python scripts/prepare_hcl_logo.py` using NumPy and Pillow.
+Regenerate with `python dev/scripts/prepare_hcl_logo.py` using NumPy and Pillow.
 The compact masthead uses `assets/hcl-lab-logo-trimmed.png`, which only removes
 fully transparent outer margins (558x767); all visible logo pixels are retained.
 The author's 2026-10-15 correction associates first author Yihan Li with both
@@ -67,7 +69,7 @@ with 198 frames and zero recorded source/render timestamp error. The SIM video
 shows static Stage 2 geometry from aligned moving cameras, not reconstructed
 robot/object motion or a policy rollout.
 
-`scripts/prepare_comparison_videos.py` creates silent 1280x720 H.264 animations
+`dev/scripts/prepare_comparison_videos.py` creates silent 1280x720 H.264 animations
 that play forward then reverse at the original 30000/1001 frame rate, and JPEG
 posters. Each loop contains 394 frames; repeated turnaround endpoints are omitted.
 They autoplay like GIFs while keeping both views synchronized. The slider only
@@ -94,7 +96,7 @@ to render each supplied figure as `<source_name>.png` in a temporary directory:
 ```bash
 pdftoppm -png -r 144 -singlefile /path/to/paper/img/asset/fig_teaser.pdf /path/to/renders/fig_teaser
 # Repeat for agentic_rsr, sim_real, real_robot_execution and policy_iteration_loop.
-NODE_PATH=/path/to/tool/node_modules node scripts/prepare_project_media.mjs \
+NODE_PATH=/path/to/tool/node_modules node dev/scripts/prepare_project_media.mjs \
   /path/to/renders /path/to/sysu-header.png /path/to/hkust-header.png
 ```
 

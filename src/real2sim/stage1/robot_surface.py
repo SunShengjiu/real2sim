@@ -241,13 +241,13 @@ def generate_pyramid(robot: str, output: Path, sizes: tuple[int, ...] = (40000, 
     return report
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Sample fixed-pose robot visual surfaces")
     parser.add_argument("--robot", choices=("piper", "franka", "all"), default="all")
-    parser.add_argument("--output", type=Path, default=ROOT / "asset/robot_surfaces")
+    parser.add_argument("--output", type=Path, default=ROOT / "data/assets/robot_surfaces")
     parser.add_argument("--sizes", type=int, nargs="+", default=(40000, 10000, 5000))
     parser.add_argument("--voxel", type=float, default=0.003, help="Deduplication grid in metres")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     for robot in POSES if args.robot == "all" else (args.robot,):
         print(json.dumps(generate_pyramid(robot, args.output / robot, tuple(args.sizes), args.voxel), indent=2))
 

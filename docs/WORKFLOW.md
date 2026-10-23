@@ -1,237 +1,68 @@
-# Public Workflow
+# Real-to-Sim 完整运行流程
 
-This runbook maps the paper's video-to-scene-to-policy workflow to the commands
-available in this checkout. Run commands from the repository root. Use a new run
-name for each experiment; the examples below use `runs/public_example` and do not
-replace the historical deliveries.
+入口统一为 `real2sim`，输入一个场景 YAML，输出一个独立运行目录。`models` 检查感知环境，`perceive` 单独运行感知，`tools` 提供阶段诊断和历史实验；新任务使用下面这条主线。
 
-The paper's main reconstruction experiments use DeepSeek Harness (DSH) and Claude
-Opus 5.5. This repository currently exposes the Codex implementation described in
-the paper's historical reconstruction appendix. The paper's aggregate numbers
-are research results, not a guarantee that a fresh installation reproduces them.
+## 1. 准备环境与输入
 
-## Prerequisites
-
-| Component | Required for |
-| --- | --- |
-| Linux x86_64, compatible NVIDIA driver, Python 3.11 | First supported complete local perception environment |
-| VGGT-Omega and SAM3 checkpoint access | Fresh video depth/cameras and segmentation |
-| Blender executable | Stage 1 scene delivery; Stage 2 inspect/edit/render; Stage 3 mesh export |
-| `external/robot_control` assets and Python package | URDF metric anchor, robot MJCF and SIM runtime |
-| MuJoCo and rendering backend | Stage 3 physics checks and SIM |
-| Authenticated Codex CLI/app-server and model access | Stage 2 planning/refinement, Stage 3 semantics/physics agents, SIM policy generation |
-| Input video, task description and matching fixed robot pose | Scene-specific reconstruction |
+完整本地感知目标环境：Linux x86_64、NVIDIA CUDA、Python 3.11。Windows 可以运行配置与部分离线检查，完整模型/渲染链需另行验收。
 
 ```bash
-git clone --recurse-submodules https://github.com/HY-LiYihan/agentic_rsr.git
-cd agentic_rsr
 git submodule update --init --recursive
 uv sync --locked --python 3.11 --extra local --extra sim --extra agent --extra dev
-# For Blender installed outside PATH, set its actual executable:
-# export BLENDER_BIN=/path/to/blender
-export VGGT_OMEGA_BACKEND=local VGGT_OMEGA_DEVICE=cuda
-export SAM3_BACKEND=local SAM3_DEVICE=cuda
 ```
 
-Follow [LOCAL_INFERENCE.md](LOCAL_INFERENCE.md) to obtain the two official
-checkpoints and run `uv run --no-sync real2sim-models check`. No inference command
-downloads missing weights or switches to a remote perception service. Agent
-model calls remain online even when the perception backends are local.
+另行安装 Blender，按 [LOCAL_INFERENCE.md](LOCAL_INFERENCE.md) 准备两个官方 checkpoint，并完成 Codex CLI 身份验证。`sim` extra 为 Stage 3 提供 MuJoCo 和机器人装配依赖。模型/代理调用需要相应访问权限，Agent 阶段会消耗模型额度。
 
-All Blender stages use an explicit `--blender` override first, then `BLENDER_BIN`,
-then `blender` on PATH, with the macOS application as a final fallback only on
-macOS. Invalid explicit settings fail rather than selecting a different install.
-The commands below inherit that choice and do not require a service address.
+示例配置为 `configs/scenes/demo.yaml`，它是输入模板，未随仓库附带已验收视频。请提供配置所指视频，或修改 `video` 指向自己的文件；至少包含 32 个可解码帧。采集时机器人保持 `configs/robots/piper.yaml` 中的固定姿态，相机移动。Franka 使用 `configs/robots/franka.yaml`。
 
-On headless Linux, configure MuJoCo rendering with `MUJOCO_GL=egl` before SIM and
-rendering checks. macOS development and CPU/cache checks are separate from CUDA
-acceptance; see [STAGE1_CPU_VALIDATION.md](STAGE1_CPU_VALIDATION.md).
+YAML 中的文件路径相对于该 YAML 文件解析，模型目录同理；`.env` 可用于远端 TCP 地址和本机凭据。环境变量中的凭据不写入配置快照。不要随意修改机器人固定姿态：现有模板和配准路径只支持已声明姿态。
 
-## 1. Video, Perception And Robot Registration
+直接运行虚拟环境内的 `real2sim` 也会为子工具设置同一 Python 环境，无须先激活虚拟环境。Windows 本机可使用 `& .venv/Scripts/real2sim.exe ...`。当前本机示例已指向用户提供的 Piper 视频，并设置 `perception.device: cpu`；任务暂按采样画面中的“将急停按钮放入绿色收纳盒”填写。Linux NVIDIA 推理可显式改为 `cuda`。CPU 模式的 32 帧真实模型推理尚未验收。
 
-Use at least 32 decodable frames of the captured workspace with the robot static
-in the supported reference pose. Review `POSES` in
-`src/real2sim/stage1/robot_surface.py` before recording: the robot dimensions and
-joint pose form the metric anchor. A changing robot pose cannot be explained by
-one rigid Sim(3) transform.
-
-The current registration batch commands discover and hash videos in
-`data/raw/piper/<task>.mp4` or `data/raw/frank/<task>.mp4` (the raw Franka directory
-is spelled `frank`). Put your own video in that layout. The following Piper
-example assumes `data/raw/piper/take_out_tissue.mp4` and a new output root:
+## 2. 检查与运行
 
 ```bash
-uv run --no-sync real2sim-robot-surfaces --robot piper
-uv run --no-sync real2sim-stage1-infer-batch \
-  --only take_out_tissue --processed-root runs/public_example/processed
-uv run --no-sync real2sim-stage1-init-batch --robot piper --rotations 128 \
-  --processed runs/public_example/processed \
-  --output runs/public_example/initializations
-uv run --no-sync real2sim-stage1-piper-top3 --only take_out_tissue --workers 3 \
-  --processed runs/public_example/processed \
-  --initializations runs/public_example/initializations/piper \
-  --top1 runs/public_example/unused_top1 \
-  --output runs/public_example/registration/piper
-uv run --no-sync real2sim-stage1-piper-deliver --only take_out_tissue \
-  --processed runs/public_example/processed/piper/stage1 \
-  --results runs/public_example/registration/piper \
-  --initializations runs/public_example/initializations/piper
+uv run --no-sync real2sim check --config configs/scenes/demo.yaml
+uv run --no-sync real2sim run --config configs/scenes/demo.yaml
 ```
 
-The template command writes generated surface caches to `asset/robot_surfaces`;
-do not regenerate them during an in-progress experiment. Registration/delivery
-checks validate their source assets and provenance. Delivery adds metric depth,
-robot-base cameras and `initial.blend` to the new perception scene directory.
+`check` 不创建输出、不下载权重、不发起 Agent 模型调用。它检查 Python/依赖、子模块提交及工作区、视频、固定机器人模板、Blender 和本地模型前置条件；Codex CLI 存在不等于已完成身份验证，认证由实际 Agent 调用确认。
 
-For Franka, infer `close_drawer`, generate `--robot franka --rotations 48`
-initializations, then run:
+`run` 先检查前置条件，再顺序执行：
+
+1. Stage 1：VGGT-Ω/SAM3 → 多视角反投影 → 固定机器人表面 Sim(3) 配准 → 米制相机/深度和 `initial.blend`。默认 Piper 为 128 旋转、Top-3；Franka 为 48 旋转、Top-1。
+2. Stage 2：Agent 规划、冻结机器人和四相机、Blender 建模、渲染及深度/颜色/覆盖率评价。未通过联合指标就停止，禁止继续导出。
+3. Stage 3：语义分类、MuJoCo 导出和物理检查。`physics: agent` 执行原有物理审查/修复及独立复验；`physics: probes` 仅做静置和扰动响应检查，两者的证据强度不同，不等同真实参数标定。
+4. Delivery：拷贝最终 XML 的全部引用资产，改为相对路径，并重新用 MuJoCo 加载，生成交付清单与哈希。
+
+配置中的 `agent.model` 和 `agent.effort` 用于建模、语义分类和物理 Agent。`max_rounds` 控制 Stage 2 预算。数值评价阈值与提示词版本由源码及输入来源记录绑定；模型结果可能波动，不能保证不同运行生成逐字节相同的场景。
+
+## 3. 运行目录与续跑
+
+```text
+data/runs/<场景名>_<北京时间>/
+  config.json                   # 解析后的配置快照
+  manifest.json                 # 输入、源码、模型、依赖与阶段状态
+  stage1/attempt_001/            # scene/ 中是 Stage 1 标准交付
+  stage2/attempt_001/            # plan/ 与 geometry/
+  stage3/attempt_001/            # export/、physics/、views/
+  delivery/                     # scene.xml、assets/、reports/、manifest.json
+```
 
 ```bash
-uv run --no-sync real2sim-stage1-franka-final --only close_drawer \
-  --processed runs/public_example/processed \
-  --initializations runs/public_example/initializations/franka \
-  --output runs/public_example/registration/franka
-uv run --no-sync real2sim-stage1-franka-deliver --only close_drawer \
-  --processed runs/public_example/processed/franka/stage1 \
-  --results runs/public_example/registration/franka \
-  --initializations runs/public_example/initializations/franka
+uv run --no-sync real2sim resume --run data/runs/<运行目录>
+uv run --no-sync real2sim verify --run data/runs/<运行目录>
+uv run --no-sync real2sim verify --run data/runs/<运行目录>/delivery
 ```
 
-The current implementation uses Piper 128 rotations/Top-3 and historical Franka
-48 rotations/Top-1; the paper's summarized 128/Top-3 setting does not describe
-both current entry points. These production paths fit and score all 32 frames.
-Their output remains `candidate_unverified`, `accepted=false`: metric anchoring
-and a readable Blender file do not establish independent registration accuracy.
-Inspect `quality_check.png`, source hashes, depth and camera alignment before
-continuing with exploratory reconstruction. The phased Stage 2 implementation
-can consume an unverified Stage 1 delivery; it does not independently validate
-registration or make that flag a proof of acceptance.
+续跑检查配置、视频/权重、源码、机器人模板、依赖版本和子模块来源，以及已完成阶段的全部产物哈希。已完成阶段保持不动；失败阶段从新的 `attempt_002` 重新执行，保留失败诊断。当前不会接着某个失败阶段内部的优化轮次继续；Stage 2 的细粒度轮次恢复仍可通过原有阶段命令使用。
 
-For perception only, `real2sim-local-example --video /path/to/task.mp4 --robot
-piper --output runs/new_perception_example` accepts an arbitrary video path and
-produces previews and a runtime report. It does not run robot registration.
+配置、模型或源码变化后应使用新运行目录。并发操作同一运行目录会被锁阻止；异常终止留下 `.running.lock` 时，先确认原进程已停止再人工清理。运行目录保存原始绝对来源用于续跑；可独立搬移的是最终 `delivery/`。
 
-## 2. Feedback-Guided Blender Reconstruction
+## 4. 交付与验收
 
-Codex must already be authenticated in the environment used by the SDK. Check
-`codex login status` before starting. The default model is configured in
-`src/real2sim/stage2/agent_runner.py`; `REAL2SIM_CODEX_MODEL` can select a model
-available to your account. Record the actual model in the run output.
+整体复制 `delivery/` 到其他位置后，再运行 `real2sim verify --run <新的交付目录>`。清单记录文件哈希，XML 只使用交付包内相对资源路径。`reports/` 保存历史检查证据，其中的来源路径只是记录，不用于加载场景。
 
-```bash
-uv run --no-sync real2sim-stage2 --phase all \
-  --input runs/public_example/processed/piper/stage1/take_out_tissue \
-  --output runs/public_example/processed/piper/stage2/take_out_tissue \
-  --task "take out a tissue" --max-rounds 10
-```
+Stage 1 当前仍为 `candidate_unverified`：全部 32 帧参与拟合和评分，没有独立精度验收。Stage 2 深度参考来自重建。Stage 3 无真实测量时最多为 `provisional`。运行完成、数值指标通过、真实参数独立验证是不同结论，统一入口不会改写这些边界。
 
-Planning writes `plan/plan.md`; refinement freezes the robot and four reference
-cameras, edits a private scene copy, renders and evaluates each candidate. Inspect
-`run_manifest.json` and `geometry/stage2_manifest.json`, rather than relying on
-the CLI exit code: exhausting the round budget is a recorded research outcome
-and may return exit code zero. Only a delivery with `accepted=true`, passed
-joint evaluation and matching `scene_sha256` is eligible for Stage 3.
-
-The joint evaluator requires mean depth MAE below 0.15 m and mean Lab Delta E76
-below 15, plus depth MAE below 0.20 m, Lab below 30 and depth coverage at least
-0.50 in every reference view. Depth is compared to the Stage 1 reconstructed
-metric reference, not an independently measured ground truth.
-
-To inspect the baseline without a new model turn, use `--phase geometry
---max-rounds 0 --plan /path/to/reviewed_plan.md` with a new output directory.
-`--phase all --max-rounds 0` still invokes the planning agent. Detailed phase,
-resume and batch behavior is in [the Stage 2 guide](../src/real2sim/stage2/README.md).
-
-Reusing a nonempty `geometry/` requires explicit `--phase geometry --resume`.
-Resume verifies the saved input, prepared scene and render hashes before
-recomputing acceptance metrics. A changed reference, plan, scene or evaluation
-implementation requires a new output directory. Historical deliveries remain
-readable, but runs without `geometry/input_provenance.json` cannot be resumed.
-
-## 3. MuJoCo Export And Physical Checks
-
-```bash
-uv run --no-sync real2sim-stage3-export \
-  --stage2 runs/public_example/processed/piper/stage2/take_out_tissue \
-  --output runs/public_example/stage3/piper/take_out_tissue/mujoco
-uv run --no-sync real2sim-stage3-physics inspect \
-  --scene runs/public_example/stage3/piper/take_out_tissue/mujoco/scene.xml
-uv run --no-sync real2sim-stage3-physics auto \
-  --scene runs/public_example/stage3/piper/take_out_tissue/mujoco/scene.xml \
-  --output runs/public_example/stage3/piper/take_out_tissue/probes
-```
-
-The accepted Stage 2 entry calls a semantics agent unless you supply reviewed
-`--semantics /path/to/semantics.json` matching the source Blend SHA256. Raw
-`--blend` export is a separate debugging path using inferred names, not equivalent
-to accepted Stage 2 export. Keep `scene.xml` with its entire `assets/` directory.
-
-For agent-led physical review, prepare a hypothesis JSON that distinguishes
-visual estimates from measured values and invoke `real2sim-stage3-agent --scene
-... --hypotheses ... --output runs/new_physics_run`. The format is illustrated in
-`tests/fixtures/stage3/code_as_policy_hypotheses.json`. See
-[the Stage 3 guide](../src/real2sim/stage3/README.md) for settling and grasp probes.
-Simulation checks may establish numerical and interaction plausibility, not
-real-world mass/friction calibration or successful tissue extraction.
-
-## 4. SIM Visual Observation And Policy Development
-
-Derive a runtime scene that allows robot_control to insert its controlled robot:
-
-```bash
-uv run --no-sync python scripts/prepare_sim_scene.py \
-  --source runs/public_example/stage3/piper/take_out_tissue/mujoco/scene.xml \
-  --output runs/public_example/sim/piper/take_out_tissue/scene_for_sim.xml
-MUJOCO_GL=egl uv run --no-sync python scripts/stage3_cli.py \
-  --scene runs/public_example/sim/piper/take_out_tissue/scene_for_sim.xml \
-  --robot piper --task take_out_tissue \
-  --image-dir runs/public_example/sim/observations
-```
-
-Enter `state`, `observe`, then `quit`. `observe` performs SAM3 inference using
-the configured local backend and returns estimated object locations plus wrist
-and third-person image paths. An explicit name-to-prompt mapping must use the
-scene's public object names. A missed detection omits that object. This check
-tests visual observation, not policy success, and needs SAM3 weights and a
-supported inference device.
-
-The existing three-pass batch helper is intended for the registered task catalog
-and uses fixed discovery/output roots. It expects delivered Stage 3 tasks under
-`data/processed/<robot>/stage3/<task>` and derived scenes under
-`runs/sim_processed_stage3_all/<robot>/<task>/scene_for_sim.xml`. Prepare each
-catalog runtime scene with `scripts/prepare_sim_scene.py`, using the reviewed
-final XML from its Stage 3 manifest. The historical `prepare_all_sim_scenes.py`
-helper assumes every source is `mujoco_v8/scene.xml` and has no argument parser;
-it must not be used to discover a repaired final candidate. After preparing and
-reviewing those inputs, a catalog run is:
-
-```bash
-MUJOCO_GL=egl uv run --no-sync python scripts/run_stage3_codex_batch.py \
-  --robot piper --task take_out_tissue --run-name public_example \
-  --total-timeout 1800 --random-seed 20260926
-```
-
-It develops a policy through `privileged_exact`, `visual_exact` and
-`visual_randomized`, preserving policy/experience files and execution evidence.
-These are development passes. Held-out evaluation and video review are separate;
-the policy claiming completion is not an independent task-success proof. The
-catalog verifier is task-specific; arbitrary new videos do not automatically
-gain success criteria or a general benchmark.
-
-## Current Release Boundary
-
-No test CI is enabled in this repository; GitHub Pages publishes the static project site. Run offline tests
-locally using `uv run --no-sync python -m pytest tests/unit tests/integration -m
-'not models' -ra`; missing local scenes and real model inputs must be reported as
-skips. Actual model acceptance uses the explicitly marked tests and inputs in
-[LOCAL_INFERENCE.md](LOCAL_INFERENCE.md).
-
-Public weights and recorded task videos are separate inputs, not checked-in
-dependencies. The fresh Linux CUDA checkpoint run and full paper reproduction
-are still unverified. Stage 1 registration has no independent accuracy acceptance;
-Stage 3 physical properties are provisional; a complete public Sim2Real safety
-and hardware execution recipe is not implemented. These limitations must remain
-visible in release reports. Original project code uses Apache-2.0; assets and
-derived artifacts will be distributed through Hugging Face as described in
-[ASSET_DISTRIBUTION.md](ASSET_DISTRIBUTION.md). See [THIRD_PARTY.md](THIRD_PARTY.md) before redistributing dependencies,
-weights or derived robot/media assets.
+离线测试见 [dev/tests/README.md](../dev/tests/README.md)。真实全流程测试只有显式设置 `RSR_E2E_CONFIG` 才会运行，并会使用真实权重、Blender 及付费 Agent 调用；跳过不能记作复现成功。

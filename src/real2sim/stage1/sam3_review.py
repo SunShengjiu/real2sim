@@ -12,7 +12,7 @@ from urllib.parse import quote
 import cv2
 import numpy as np
 
-from .pipeline import sha256
+from .inference import sha256
 from .sim3_registration import ROOT
 
 
@@ -127,13 +127,13 @@ def review_all(processed: Path, output: Path, raw: Path, only: str | None = None
     return summaries
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Visualize existing Piper SAM3 masks without remote calls")
     parser.add_argument("--processed", type=Path, default=ROOT / "data/processed/piper/stage1")
     parser.add_argument("--raw", type=Path, default=ROOT / "data/raw/piper")
-    parser.add_argument("--output", type=Path, default=ROOT / "runs/sam3_review/piper")
+    parser.add_argument("--output", type=Path, default=ROOT / "data/runs/sam3_review/piper")
     parser.add_argument("--only", help="Show only one current Piper video by stem")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     review_all(args.processed, args.output, args.raw, args.only)
 
 

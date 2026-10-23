@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import math
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -170,11 +171,13 @@ def verify_run(output: Path, original_hash: str, scene: Path, hypotheses: dict[s
             errors.append(f"invalid {name} report: {exc}")
     for command in ("objects", "static", "run" if articulated else "grasp"):
         matching = [item for item in trace if re.search(
-            r"(?:physics_probe|real2sim-stage3-physics)\s+" + command + r"\b", item["command"])]
+            r"(?:physics_probe|real2sim tools stage3-physics)\s+" + command + r"\b", item["command"])]
         completed = any(item["exit_code"] in (0, 2) or item.get("probe_exit_code") in (0, 2)
                         for item in matching)
         if not completed and ("articulation" if command == "run" else command) in reports:
-            completed = any(f'"scene": "{scene}"' in item.get("output_tail", "")
+            scene_fields = [f'"scene": {json.dumps(str(scene), ensure_ascii=escape)}'
+                            for escape in (False, True)]
+            completed = any(any(field in item.get("output_tail", "") for field in scene_fields)
                             and '"passed":' in item.get("output_tail", "") for item in matching)
             if completed:
                 warnings.append(f"{command} probe produced a valid report but its shell wrapper exited nonzero")
@@ -185,12 +188,12 @@ def verify_run(output: Path, original_hash: str, scene: Path, hypotheses: dict[s
         errors.append("articulated candidate requires a separate joint recheck")
     if candidate:
         path = candidate_path
-        if not any(re.search(r"(?:physics_probe|real2sim-stage3-physics)\s+patch\b", item["command"])
+        if not any(re.search(r"(?:physics_probe|real2sim tools stage3-physics)\s+patch\b", item["command"])
                    and str(path) in item["command"] and item["exit_code"] == 0
                    for item in trace):
             errors.append("no completed agent patch command for candidate")
         for command_name in ("static", "grasp"):
-            if not any(re.search(r"(?:physics_probe|real2sim-stage3-physics)\s+" +
+            if not any(re.search(r"(?:physics_probe|real2sim tools stage3-physics)\s+" +
                                  command_name + r"\b", item["command"])
                        and str(path) in item["command"] and item["exit_code"] in (0, 2)
                        for item in trace):
@@ -315,6 +318,9 @@ def run_agent(scene: Path, hypotheses_path: Path, output: Path,
               task_context: str = "No task description was supplied; rely on the scene and hypotheses.") -> dict[str, Any]:
     from openai_codex import ApprovalMode, Codex, LocalImageInput, Sandbox, TextInput
 
+    model = os.getenv("REAL2SIM_CODEX_MODEL", "gpt-6-astra")
+    effort = os.getenv("REAL2SIM_CODEX_EFFORT", "high")
+
     scene = scene.expanduser().resolve(strict=True)
     hypotheses_path = hypotheses_path.expanduser().resolve(strict=True)
     output = output.expanduser().resolve()
@@ -343,7 +349,7 @@ def run_agent(scene: Path, hypotheses_path: Path, output: Path,
             visual_prior=output / "visual_force_prior.json" if "free" in joints else "not applicable (joint-only scene)")
         with Codex() as codex:
             thread = codex.thread_start(cwd=str(REPO_ROOT), sandbox=Sandbox.full_access,
-                                        approval_mode=ApprovalMode.deny_all, model="gpt-6-astra", ephemeral=True)
+                                        approval_mode=ApprovalMode.deny_all, model=model, ephemeral=True)
             record["thread_id"] = thread.id
             _write_json(output / "session.json", record)
             try:
@@ -353,7 +359,7 @@ def run_agent(scene: Path, hypotheses_path: Path, output: Path,
                         body_names=json.dumps(free_bodies, ensure_ascii=False), task_context=task_context)
                     (output / "visual_force_prior_prompt.md").write_text(prior_prompt, encoding="utf-8")
                     prior_turn = thread.run([TextInput(text=prior_prompt), LocalImageInput(path=observation["image"])],
-                                            model="gpt-6-astra", effort="high", output_schema=PRIOR_SCHEMA)
+                                            model=model, effort=effort, output_schema=PRIOR_SCHEMA)
                     if _command_trace(prior_turn.items):
                         raise ValueError("visual prior turn must not execute commands or read simulator parameters")
                     prior = json.loads(prior_turn.final_response or "{}")
@@ -368,7 +374,7 @@ def run_agent(scene: Path, hypotheses_path: Path, output: Path,
                 for attempt in range(MAX_REPAIR_TURNS):
                     inputs = ([TextInput(text=prompt), LocalImageInput(path=observation["image"])]
                               if attempt == 0 else [TextInput(text=feedback)])
-                    turn = thread.run(inputs, model="gpt-6-astra", effort="high", output_schema=RESULT_SCHEMA)
+                    turn = thread.run(inputs, model=model, effort=effort, output_schema=RESULT_SCHEMA)
                     record["turn_id"] = turn.id
                     record["turn_status"] = str(turn.status)
                     record["commands"].extend(_command_trace(turn.items))

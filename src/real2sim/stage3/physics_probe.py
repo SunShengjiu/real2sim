@@ -258,7 +258,7 @@ def _overview_image(scene: Path, output: Path, settle: float, attach_piper: str)
     result = subprocess.run([str(executable), "-m", "real2sim.stage3.render_overview",
                              "--scene", str(scene), "--output", str(output),
                              "--settle", str(settle), "--attach-piper", attach_piper],
-                            capture_output=True, text=True, env=env)
+                            capture_output=True, text=True, env=env, encoding="utf-8", errors="replace")
     if result.returncode:
         raise RuntimeError(f"third-person rendering failed: {result.stderr.strip()}")
     return output.expanduser().resolve()

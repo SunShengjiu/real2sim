@@ -10,8 +10,8 @@ from pathlib import Path
 
 import numpy as np
 
-from perception.sam3 import DEFAULT_PROMPT
-from .pipeline import sha256
+from real2sim.perception.sam3 import DEFAULT_PROMPT
+from .inference import sha256
 from .sim3_registration import ROOT
 
 
@@ -84,11 +84,11 @@ def promote_scene(source: Path, trial: Path) -> dict:
     return manifest
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Promote complete SAM3 trials, preserving VGGT outputs")
     parser.add_argument("--processed", type=Path, default=ROOT / "data/processed/piper/stage1")
-    parser.add_argument("--trials", type=Path, default=ROOT / "runs/sam3_prompt_trials/piper/base_camera")
-    args = parser.parse_args()
+    parser.add_argument("--trials", type=Path, default=ROOT / "data/runs/sam3_prompt_trials/piper/base_camera")
+    args = parser.parse_args(argv)
     scenes = sorted(path.stem for path in (ROOT / "data/raw/piper").glob("*.mp4"))
     if not scenes:
         parser.error("no active Piper videos")

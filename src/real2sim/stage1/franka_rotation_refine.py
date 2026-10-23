@@ -10,7 +10,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .franka_final import select_seed
+from .refinement import select_seed
 from .initial_pose_batch import ALL_FRAMES, ranked_sheet
 from .rotation_search import (MIN_LOSS_IMPROVEMENT, ROTATION_STEPS_DEGREES,
                               adjust_translation_scale, refine_rotation)
@@ -32,7 +32,7 @@ def run(scene: str, baseline_file: Path, initial_file: Path,
     manifest, cameras, depths, masks, observed, counts = load_observations(source, held_out=())
     if manifest.get("robot") != "franka" or [entry["frame"] for entry in counts] != list(ALL_FRAMES):
         raise ValueError("expected all 32 Franka observation frames")
-    with np.load(ROOT / "asset/robot_surfaces/franka/surface_40000.npz") as data:
+    with np.load(ROOT / "data/assets/robot_surfaces/franka/surface_40000.npz") as data:
         full_model = data["points"].astype(float)
     center = full_model.mean(axis=0)
     model = full_model[np.random.default_rng(2027).permutation(len(full_model))[:20000]]
@@ -87,15 +87,15 @@ def run(scene: str, baseline_file: Path, initial_file: Path,
     return result
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Refine rotation for one saved Franka task")
     parser.add_argument("--scene", default="close_drawer")
-    parser.add_argument("--baselines", type=Path, default=ROOT / "runs/franka_final_48")
-    parser.add_argument("--initializations", type=Path, default=ROOT / "runs/initial_poses/franka")
+    parser.add_argument("--baselines", type=Path, default=ROOT / "data/runs/franka_final_48")
+    parser.add_argument("--initializations", type=Path, default=ROOT / "data/runs/initial_poses/franka")
     parser.add_argument("--processed", type=Path, default=ROOT / "data/processed")
     parser.add_argument("--output", type=Path)
-    args = parser.parse_args()
-    output = args.output or ROOT / "runs/franka_rotation_refine_48" / args.scene
+    args = parser.parse_args(argv)
+    output = args.output or ROOT / "data/runs/franka_rotation_refine_48" / args.scene
     result = run(args.scene, args.baselines / args.scene / "result.json",
                  args.initializations / args.scene / "initialization.json",
                  args.processed, output)

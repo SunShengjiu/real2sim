@@ -23,9 +23,9 @@ Read the latest report and error previews before editing. Use these commands whe
 needed:
 
 ```bash
-real2sim-stage2 inspect --scene CURRENT_SCENE --output INSPECT_JSON
-real2sim-stage2 render --scene CURRENT_SCENE --output RENDER_DIR
-real2sim-stage2 evaluate --reference INPUT_DIR --render RENDER_DIR --output EVAL_DIR
+real2sim tools stage2 inspect --scene CURRENT_SCENE --output INSPECT_JSON
+real2sim tools stage2 render --scene CURRENT_SCENE --output RENDER_DIR
+real2sim tools stage2 evaluate --reference INPUT_DIR --render RENDER_DIR --output EVAL_DIR
 ```
 
 Write only a Blender Python edit script to `{edit_script}`. The orchestrator will

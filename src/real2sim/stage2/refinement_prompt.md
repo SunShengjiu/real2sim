@@ -95,7 +95,7 @@ mechanisms that the task does not require.
 Use this command when available:
 
 ```bash
-real2sim-stage2 render-rgb --scene CURRENT_SCENE --output {round_dir}/agent_self_render
+real2sim tools stage2 render-rgb --scene CURRENT_SCENE --output {round_dir}/agent_self_render
 ```
 
 If the command is unavailable, use the repository-local Python fallback:

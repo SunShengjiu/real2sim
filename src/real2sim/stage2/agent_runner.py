@@ -108,7 +108,7 @@ def _run_blender(blender: Path, scene: Path, command: str, output: Path,
     environment = os.environ.copy()
     environment["PYTHONPATH"] = str(REPO_ROOT / "src") + os.pathsep + environment.get("PYTHONPATH", "")
     process = subprocess.run(command_args, cwd=REPO_ROOT, env=environment,
-                             capture_output=True, text=True)
+                             capture_output=True, text=True, encoding="utf-8", errors="replace")
     if process.returncode:
         raise RuntimeError(f"Blender {command} failed ({process.returncode}): "
                            f"{process.stderr[-3000:]}\n{process.stdout[-1000:]}")
@@ -275,7 +275,7 @@ def run_stage2(input_dir: Path, output: Path, task_description: str | None = Non
                         _write_json(output / "final" / "stage2_manifest.json", {
                             "schema": "stage2-delivery-v1", "status": "passed", "accepted": True,
                             "scene": str(final), "scene_sha256": _sha256(final),
-                            "evaluation": report, "frozen_signature": json.loads(frozen_path.read_text()),
+                            "evaluation": report, "frozen_signature": json.loads(frozen_path.read_text(encoding="utf-8")),
                             "thread_id": thread.id, "round": round_id,
                         })
                         record["status"] = "passed"

@@ -48,7 +48,7 @@ only an acceptance signal; it is not a replacement for visual comparison.
 Use the repository CLI when available:
 
 ```bash
-real2sim-stage2 render-rgb --scene CURRENT_SCENE --output {round_dir}/agent_self_render
+real2sim tools stage2 render-rgb --scene CURRENT_SCENE --output {round_dir}/agent_self_render
 ```
 
 The equivalent repository-local fallback is:

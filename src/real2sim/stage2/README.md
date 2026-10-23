@@ -26,10 +26,10 @@ Stage 1 生产交付仍为 `candidate_unverified`、`accepted=false`，因为拟
 四视角、metric 相机与 depth，再使用独立输出目录：
 
 ```bash
-real2sim-stage2-agent \
+real2sim tools stage2 \
   --phase all \
   --input data/processed/piper/stage1/put_emergency_stop_button_in_green_storage_box \
-  --output runs/stage2/put_emergency_stop_button_in_green_storage_box/20260924_01 \
+  --output data/runs/stage2/put_emergency_stop_button_in_green_storage_box/20260924_01 \
   --task "put emergency stop button in green storage box" \
   --max-rounds 10
 ```
@@ -37,18 +37,18 @@ real2sim-stage2-agent \
 单独运行 Plan：
 
 ```bash
-real2sim-stage2-agent --phase plan \
+real2sim tools stage2 --phase plan \
   --input data/processed/piper/stage1/put_emergency_stop_button_in_green_storage_box \
-  --output runs/stage2/put_emergency_stop_button_in_green_storage_box/20260924_01
+  --output data/runs/stage2/put_emergency_stop_button_in_green_storage_box/20260924_01
 ```
 
 单独运行 Refinement：
 
 ```bash
-real2sim-stage2-agent --phase geometry \
+real2sim tools stage2 --phase geometry \
   --input data/processed/piper/stage1/put_emergency_stop_button_in_green_storage_box \
-  --output runs/stage2/put_emergency_stop_button_in_green_storage_box/20260924_01 \
-  --plan runs/stage2/put_emergency_stop_button_in_green_storage_box/20260924_01/plan/plan.md \
+  --output data/runs/stage2/put_emergency_stop_button_in_green_storage_box/20260924_01 \
+  --plan data/runs/stage2/put_emergency_stop_button_in_green_storage_box/20260924_01/plan/plan.md \
   --max-rounds 10
 ```
 
@@ -56,7 +56,7 @@ real2sim-stage2-agent --phase geometry \
 inspect/render/evaluate，不启动 Refinement Codex。`--phase all --max-rounds 0`
 仍会启动 Plan Agent；不能把它当成完全离线检查。
 
-不写 `--phase` 的旧式 `real2sim-stage2-agent --input ...` 通过 `agent` 子命令进入
+不写 `--phase` 的旧式 `real2sim tools stage2 --input ...` 通过 `agent` 子命令进入
 相同的 `run_phases()`。需要 `--plan` 或 `--resume` 时显式使用
 `--phase geometry`；`--resume` 不支持 `--phase all`。
 
@@ -67,11 +67,11 @@ codex -m gpt-6-astra -c model_reasoning_effort=high
 ```
 
 ```bash
-real2sim-stage2-agent \
+real2sim tools stage2 \
   --phase geometry \
   --input data/processed/piper/stage1/put_emergency_stop_button_in_green_storage_box \
-  --output runs/stage2/put_emergency_stop_button_in_green_storage_box/20260924_baseline \
-  --plan runs/stage2/put_emergency_stop_button_in_green_storage_box/20260924_01/plan/plan.md \
+  --output data/runs/stage2/put_emergency_stop_button_in_green_storage_box/20260924_baseline \
+  --plan data/runs/stage2/put_emergency_stop_button_in_green_storage_box/20260924_01/plan/plan.md \
   --max-rounds 0
 ```
 
@@ -79,10 +79,10 @@ real2sim-stage2-agent \
 
 从 `data/processed/<robot>/stage1/<task>` 自动发现所有 Stage 1 交付，并将通过验收的
 最终场景写入对应的 `data/processed/<robot>/stage2/<task>`；运行日志、中间过程和
-历史结果保存在 `runs/stage2/`，可以运行：
+历史结果保存在 `data/runs/stage2/`，可以运行：
 
 ```bash
-PYTHONPATH=src python scripts/run_stage2_batch.py \
+PYTHONPATH=src python dev/scripts/batch/run_stage2_batch.py \
   --robots franka piper \
   --workers 2 \
   --max-rounds 10
@@ -91,13 +91,13 @@ PYTHONPATH=src python scripts/run_stage2_batch.py \
 模型消融应使用独立输出根目录，避免覆盖已交付的 Stage 2：
 
 ```bash
-PYTHONPATH=src python scripts/run_stage2_batch.py \
+PYTHONPATH=src python dev/scripts/batch/run_stage2_batch.py \
   --robots franka piper \
   --workers 9 \
   --max-rounds 10 \
   --model gpt-5.6-sol \
-  --output-root runs/stage2/ablations/gpt-5.6-sol \
-  --manifest runs/stage2/metadata/ablation_gpt-5.6-sol_manifest.json
+  --output-root data/runs/stage2/ablations/gpt-5.6-sol \
+  --manifest data/runs/stage2/metadata/ablation_gpt-5.6-sol_manifest.json
 ```
 
 `--model` 通过每个子进程的 `REAL2SIM_CODEX_MODEL` 传入 Plan 和 Geometry 两个
@@ -110,14 +110,14 @@ Codex 会话；`--output-root` 只改变实验输出位置，不会修改 Stage 
 Plan 的任务会复用每轮候选场景并从最后完成的轮次继续，尚未生成 Plan 的任务会从
 Plan 阶段开始。历史候选若已满足新阈值，会重新验收并直接交付，不会重复运行 Plan
 或额外消耗轮次。
-续跑请用 `--manifest runs/stage2/metadata/resume_manifest.json` 保存独立状态，
+续跑请用 `--manifest data/runs/stage2/metadata/resume_manifest.json` 保存独立状态，
 每场景的续跑日志写入 `resume_process.log`，原始日志保留。
-可运行 `python scripts/organize_stage2_results.py --prune` 刷新
-`runs/stage2/metadata/results_index.json` 和 `STATUS.md`，清理已结束场景中
+可运行 `python dev/scripts/maintenance/organize_stage2_results.py --prune` 刷新
+`data/runs/stage2/metadata/results_index.json` 和 `STATUS.md`，清理已结束场景中
 已评估轮次的 Blender 备份及已交付场景的临时预览 Blend；每轮正式候选、
 渲染、评估和会话记录均保留，运行中的任务不清理。不带 `--prune` 只刷新索引。
 全局批次状态写入
-`runs/stage2/metadata/batch_manifest.json`，每个任务自己的 Codex/Blender 输出仍
+`data/runs/stage2/metadata/batch_manifest.json`，每个任务自己的 Codex/Blender 输出仍
 完整保存在对应任务目录；每个任务的标准输出和错误输出保存在
 `<task>/batch_process.log`。正式启动前可以使用 `--dry-run` 只检查任务列表和输出路径。
 
@@ -126,9 +126,9 @@ Plan 阶段开始。历史候选若已满足新阈值，会重新验收并直接
 历史本机实验的 18 个验收场景使用如下布局（场景文件被忽略，不随公开 checkout 提供）：
 `data/processed/<robot>/stage2/<task>/geometry/final.blend`，对应的
 `geometry/stage2_manifest.json` 是交付入口。未通过或被新重跑版本替换的历史目录
-放在 `runs/stage2/archive/`，不会混入可供 Stage 3 消费的 `data/processed` 目录。
-`runs/stage2/metadata/delivery_layout.json` 汇总当前 18 个交付场景。
-实验用的基线和逐轮指标在 `runs/stage2/metadata/experiments/`，其中
+放在 `data/runs/stage2/archive/`，不会混入可供 Stage 3 消费的 `data/processed` 目录。
+`data/runs/stage2/metadata/delivery_layout.json` 汇总当前 18 个交付场景。
+实验用的基线和逐轮指标在 `data/runs/stage2/metadata/experiments/`，其中
 `round_metrics.csv` 保留原始运行和独立重跑的完整轨迹。
 同时启动两批时，用 `--manifest` 为后启动的批次指定单独的清单路径，避免覆盖
 正在更新的另一份批次状态。
@@ -136,10 +136,10 @@ Plan 阶段开始。历史候选若已满足新阈值，会重新验收并直接
 可对现有已交付场景的最终验收 RGB 渲染补充四视角 SSIM：
 
 ```bash
-python scripts/export_stage2_ssim.py
+python dev/scripts/experiments/export_stage2_ssim.py
 ```
 
-结果写入 `runs/stage2/metadata/ssim/`：`scene_ssim.csv` 和 `SSIM.md` 提供
+结果写入 `data/runs/stage2/metadata/ssim/`：`scene_ssim.csv` 和 `SSIM.md` 提供
 每个场景四个相机及均值，`<robot>/<task>/report.json` 保留对应的参考图和渲染图路径。
 SSIM 使用整张 RGB 图经 OpenCV RGB2GRAY 转换的灰度图、11×11 高斯窗口（σ=1.5），越高越相似；
 它是补充分析指标，不改变 Depth MAE/Lab 的验收条件。
@@ -147,11 +147,11 @@ SSIM 使用整张 RGB 图经 OpenCV RGB2GRAY 转换的灰度图、11×11 高斯�
 也可以单独调用底层工具：
 
 ```bash
-real2sim-stage2 inspect --scene path/to/scene.blend --output inspect.json
-real2sim-stage2 render --scene path/to/scene.blend --output render/
-real2sim-stage2 render-rgb --scene path/to/scene.blend --output rgb_render/
-real2sim-stage2 evaluate --reference path/to/stage1 --render render/ --output evaluation/
-real2sim-stage2 evaluate-depth --reference path/to/stage1 --render render/ --output evaluation/
+real2sim tools stage2 inspect --scene path/to/scene.blend --output inspect.json
+real2sim tools stage2 render --scene path/to/scene.blend --output render/
+real2sim tools stage2 render-rgb --scene path/to/scene.blend --output rgb_render/
+real2sim tools stage2 evaluate --reference path/to/stage1 --render render/ --output evaluation/
+real2sim tools stage2 evaluate-depth --reference path/to/stage1 --render render/ --output evaluation/
 ```
 
 ## 每轮流程
@@ -161,7 +161,7 @@ real2sim-stage2 evaluate-depth --reference path/to/stage1 --render render/ --out
    `initial_with_default_light.blend`，加入可替换默认灯光后再记录四相机/Piper
    冻结签名并做深度基线渲染。
 3. Refinement Agent 每轮收到原始 Blend 路径、Plan、四相机状态、四个方向的参考 RGB、当前场景 RGB 预览，以及只含整体 Depth MAE/Lab ΔE76 的 scalar 报告。
-4. Agent 必须先自己执行 `real2sim-stage2 render-rgb` 到 `agent_self_render/`，先修几何再修材质/光照；外层程序执行脚本、保存 `candidate.blend`、冻结检查、渲染和最终双指标。
+4. Agent 必须先自己执行 `real2sim tools stage2 render-rgb` 到 `agent_self_render/`，先修几何再修材质/光照；外层程序执行脚本、保存 `candidate.blend`、冻结检查、渲染和最终双指标。
 5. 每轮都保留独立的 `geometry/round_NNN/`，包含 Agent 自己生成的 `agent_self_render/`，并通过前不断使用同一个临时 Codex thread。
 6. 每轮按四个视角的整体 Depth MAE 和 Lab ΔE76 联合验收，直到通过或达到轮数上限。
 
@@ -187,7 +187,7 @@ RGB/深度、Plan、评估设置和渲染/评估实现必须与首次运行相�
 `--output` 始终指向一次完整运行的根目录：
 
 ```text
-runs/stage2/<task>/<run_id>/
+data/runs/stage2/<task>/<run_id>/
 ├── run_manifest.json                 # 整次运行的索引和最终结果入口
 ├── plan/
 │   ├── prompt.md                     # Plan Agent 实际收到的提示词
@@ -227,7 +227,7 @@ runs/stage2/<task>/<run_id>/
 最终 Blend 和验收清单。
 # 无初始机器人校准消融
 
-`scripts/run_stage2_uncalibrated.py --output runs/stage2/ablations/<name> --piper-asset <piper.blend> --franka-asset <franka.blend>`
+`dev/scripts/experiments/run_stage2_uncalibrated.py --output data/runs/stage2/ablations/<name> --piper-asset <piper.blend> --franka-asset <franka.blend>`
 从两份独立机器人资产生成统一的四视角相机初值，不读取 Stage1 配准或相机参数。
 机器人本体、尺寸和姿态保持冻结；Agent 可根据四张 RGB 调整相机位置、旋转、焦距和偏移。
 其余采用正常 Plan、RGB 自检、几何和外观联合验收，GPT-6 Astra high、18 并发、10 轮。

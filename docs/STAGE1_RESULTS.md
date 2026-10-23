@@ -60,7 +60,7 @@
 | `reference/`、`quality_check.png` | 0、10、21、31 帧 RGB 与配准叠图，供人工复核 |
 | `initial.blend` | 根部位于世界原点的固定姿态机械臂及四个打包 RGB 的参考相机；尚未完成物体的 Stage 2 建模 |
 
-交付数据与 `runs/` 优化缓存受 `.gitignore` 排除，文档中的数字是从当前本机交付快照转录的。论文中的“重投影误差”“深度 MAE”“成功率”须另设独立验证和相应评测，不能直接用上述训练 loss 代替。
+交付数据与 `data/runs/` 优化缓存受 `.gitignore` 排除，文档中的数字是从当前本机交付快照转录的。论文中的“重投影误差”“深度 MAE”“成功率”须另设独立验证和相应评测，不能直接用上述训练 loss 代替。
 
 ## Stage 2 物体模型与 Stage 1 观测对照（2026-09-25）
 
@@ -70,10 +70,10 @@
 从同四台参考相机光线投射出逐物体可见点云，与 SAM3 分割＋米制深度生成的
 同视角观测点云比较；指标为对称 Chamfer (m)、F1 @ 1 cm 和可见点云 AABB
 中心位置差 (m)。任务专属 SAM3 原始掩码、有效掩码和 Blender 预测掩码均逐
-物体/逐视角保存至 `runs/stage1_vs_stage2_objects/<robot>/<task>/`，便于核验是否
+物体/逐视角保存至 `data/runs/stage1_vs_stage2_objects/<robot>/<task>/`，便于核验是否
 分割了**完整的任务物体**。每个 Blend 网格组在 `model/blend_inventory.json`。
 
-逐物体/场景数值分别以 `runs/stage1_vs_stage2_objects/objects.csv` 和
+逐物体/场景数值分别以 `data/runs/stage1_vs_stage2_objects/objects.csv` 和
 `summary.csv` 为准；仅在模型网格及观测点云都有效时给出数字。米制深度是单目
 重建，不是真实深度传感器 GT；F1 的 1 cm 阈值对尺度/位置偏差特别敏感，
 不能将未通过阈值简单归因于几何形状。
@@ -106,4 +106,4 @@
 `piper/take_out_tissue` 第 21 帧两个目标均未检测到。
 其余单视角漏检/重叠可见对应物体的 `invalid_views`，失效视角不纳入均值；
 这些数值都是未经人工核验的伪参考，不是已通过验收的结果。旧的观测对观测
-实验 `runs/stage1_object_metrics/` 已清理，不再作为实验表格使用。
+实验 `data/runs/stage1_object_metrics/` 已清理，不再作为实验表格使用。

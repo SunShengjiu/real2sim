@@ -127,7 +127,7 @@ def _extract_model(blend: Path, output: Path, camera: dict, frames: tuple[int, .
                             'json.dumps([obj.name for obj in bpy.data.objects if obj.type == "MESH"]))')
     command = [str(blender), "-b", str(blend), "--python-exit-code", "1",
                "--python-expr", inventory_expression]
-    result = subprocess.run(command, capture_output=True, text=True, timeout=180)
+    result = subprocess.run(command, capture_output=True, text=True, timeout=180, encoding="utf-8", errors="replace")
     marker = "STAGE2_MESH_NAMES="
     names_line = next((line for line in result.stdout.splitlines() if line.startswith(marker)), None)
     if result.returncode or names_line is None:
@@ -151,7 +151,7 @@ def _extract_model(blend: Path, output: Path, camera: dict, frames: tuple[int, .
     worker = Path(__file__).with_name("blend_object_worker.py")
     result = subprocess.run([str(blender), "-b", str(blend), "--python-exit-code", "1",
                              "--python", str(worker), "--", str(spec_path)],
-                            capture_output=True, text=True, timeout=1200)
+                            capture_output=True, text=True, timeout=1200, encoding="utf-8", errors="replace")
     (output / "model_render.log").write_text(result.stdout + "\n" + result.stderr, encoding="utf-8")
     if result.returncode or not (output / "blend_inventory.json").is_file():
         raise MetricsError(f"model ray cast failed: {(result.stdout + result.stderr)[-2000:]}")
@@ -520,7 +520,7 @@ def evaluate_scene(scene: Path, output: Path, *, blend: Path | None = None,
 
 
 def _make_segmenter() -> Segmenter:
-    from perception.config import create_sam3
+    from real2sim.perception.config import create_sam3
     return create_sam3()
 
 
@@ -584,12 +584,12 @@ def evaluate_all(processed_root: Path, output: Path, *, segmenter: Segmenter | N
     return {"scene_count": len(reports), "reports": summary_rows}
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     import argparse
 
     parser = argparse.ArgumentParser(description="Compare Stage 2 Blender object meshes with Stage 1 SAM3 and metric depth")
     parser.add_argument("--processed", type=Path, default=ROOT / "data/processed")
-    parser.add_argument("--output", type=Path, default=ROOT / "runs/stage1_vs_stage2_objects")
+    parser.add_argument("--output", type=Path, default=ROOT / "data/runs/stage1_vs_stage2_objects")
     parser.add_argument("--blender", type=Path)
     parser.add_argument("--voxel-size", type=float, default=DEFAULT_VOXEL_SIZE_M)
     parser.add_argument("--pixel-stride", type=int, default=DEFAULT_PIXEL_STRIDE)
@@ -597,7 +597,7 @@ def main() -> None:
     parser.add_argument("--force-masks", action="store_true")
     parser.add_argument("--no-sidecars", action="store_true",
                         help="leave Stage 1 delivery folders unchanged")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     result = evaluate_all(args.processed, args.output, frames=tuple(REFERENCE),
                           voxel_size=args.voxel_size, pixel_stride=args.pixel_stride,
                           threshold_m=args.f1_threshold, force_masks=args.force_masks,

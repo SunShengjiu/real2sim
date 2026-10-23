@@ -1,14 +1,12 @@
 # 本地感知模型安装与最小复现
 
-首个完整推理验收目标是 **Linux x86_64、NVIDIA CUDA、Python 3.11**。源码以固定提交的子模块放在本仓库，checkpoint 可以直接放入 `model/`，也可以挂载到对应目录。默认使用本地 VGGT-Ω 和 SAM3；仅显式选择 `remote` 时连接远端服务。
+首个完整推理验收目标是 **Linux x86_64、NVIDIA CUDA、Python 3.11**。源码以固定提交的子模块放在本仓库，checkpoint 放入 `data/models/`，也可以挂载到对应目录。默认使用本地 VGGT-Ω 和 SAM3；仅显式选择 `remote` 时连接远端服务。
 
-当前阶段交付本地接入和离线契约测试；没有在本次 macOS 整理环境执行真实 CUDA checkpoint 推理。安装成功、模型检查成功与真实视频复现通过是三个独立的验收步骤。CPU/MPS 可显式配置用于开发，但不作为完整复现验收环境。
+当前本机为 Windows CPU 开发环境，已经完成离线代码、机器人资产、Blender 和 MuJoCo 检查，尚未完成真实模型推理。安装成功、模型检查成功与真实视频复现通过是三个独立的验收步骤。CPU/MPS 可显式配置，真实推理的性能与内存需求仍需实测。
 
 ## 1. 源码与环境
 
 ```bash
-git clone --recurse-submodules https://github.com/HY-LiYihan/agentic_rsr.git
-cd agentic_rsr
 git submodule update --init --recursive
 uv sync --locked --python 3.11 --extra local --extra sim --extra dev
 ```
@@ -39,15 +37,15 @@ export BLENDER_BIN=/path/to/blender
 
 `local` extra 包含 `numpy>=1.26,<2`、`opencv-python<4.12`：VGGT-Ω 要求 NumPy 1.x，而 OpenCV 4.12 开始的相关 wheel 要求 NumPy 2.x。支持的项目 Python 范围为 3.10 至 3.12，完整推理统一选 3.11。
 
-SAM3 文本编码器需要 Ultralytics CLIP 包及其内置 BPE 词表；锁文件固定 [CLIP 提交](https://github.com/ultralytics/CLIP/tree/7ffa84b3bfa40c42ecc1c77147a855e69cb2dd40)。不要安装 PyPI 上同名但不兼容的 `clip` 包。安装阶段获取依赖；本地推理检查依赖，不在运行中安装包或下载模型。
+SAM3 文本编码器需要 Ultralytics CLIP 包及其内置 BPE 词表；锁文件通过官方源码 ZIP 及 SHA256 固定 [CLIP 提交](https://github.com/ultralytics/CLIP/tree/7ffa84b3bfa40c42ecc1c77147a855e69cb2dd40)。不要安装 PyPI 上同名但不兼容的 `clip` 包。安装阶段获取依赖；本地推理检查依赖，不在运行中安装包或下载模型。
 
-`sim` extra 从现有子模块安装 `robot-control` 基础包，并单独安装 MuJoCo/Pillow 和 NumPy 1.26 兼容的 Pinocchio 2.7 / Boost 1.83 / urdfdom 3 / TinyXML2 10。机器人连接时即初始化 IK，视觉观测也需要这些依赖。上游 `robot-control[mujoco]` 固定 Pinocchio 3.9，其 Boost 1.89 wheel 在 Python 3.11 上要求 NumPy 2.3，与 VGGT-Ω 冲突；本项目明确锁定兼容栈，保持机器人源码子模块不变，不应再额外安装上游 `mujoco` extra。
+`sim` extra 只安装 Stage 3 场景导出和物理检查需要的 MuJoCo、Pillow 与 robot-control 基础包。配准和模型装配不建立运动控制会话，不需要 Pinocchio/IK 及其 cmeel 依赖。上游 robot-control 的控制扩展保持原样，本项目不安装这些扩展。
 
 仅运行无权重测试时不安装 `local`：
 
 ```bash
 uv sync --locked --python 3.11 --extra sim --extra dev
-uv run --no-sync python -m pytest tests/unit tests/integration -m 'not models' -ra
+uv run --no-sync python -m pytest dev/tests/unit dev/tests/integration -m 'not models' -ra
 ```
 
 ## 2. 申请并准备权重
@@ -61,15 +59,19 @@ uv run --no-sync python -m pytest tests/unit tests/integration -m 'not models' -
 
 ```bash
 uv run --no-sync hf auth login
-uv run --no-sync hf download facebook/VGGT-Omega vggt_omega_1b_512.pt --local-dir model/vggt_omega
-uv run --no-sync hf download facebook/sam3 sam3.pt --local-dir model/sam3
+uv run --no-sync real2sim models download
+uv run --no-sync real2sim models check
 ```
 
-也可用自己的下载工具或将已有权重目录挂载到 `model/vggt_omega/`、`model/sam3/`。默认路径：
+当前安装的 HF CLI 支持浏览器设备授权：打开终端显示的链接，输入短码并确认授权即可。模型访问申请需要在两个模型页面分别完成；登录成功不等于访问申请已获批。凭据由 HF CLI 保存，不发送到聊天或提交 Git。
+
+Windows 可直接执行 `& .venv/Scripts/hf.exe auth login`，再执行 `& .venv/Scripts/real2sim.exe models download`。下载器使用既有授权，固定官方仓库提交，核对文件大小与 SHA256；已存在且一致的文件会复用，内容不同的已有文件会报错。具体版本和哈希见 `src/real2sim/perception/config.py` 中的 `MODEL_WEIGHTS`。两个文件合计约 8.03 GB。下载成功不代表模型推理已通过。
+
+也可将已有且哈希一致的权重目录挂载到 `data/models/vggt_omega/`、`data/models/sam3/`。默认路径：
 
 ```text
-model/vggt_omega/vggt_omega_1b_512.pt
-model/sam3/sam3.pt
+data/models/vggt_omega/vggt_omega_1b_512.pt
+data/models/sam3/sam3.pt
 ```
 
 权重、Hugging Face 下载缓存与凭据不提交 Git。没有 checkpoint 时明确报错，不隐式下载，不自动改用远端。
@@ -80,10 +82,10 @@ model/sam3/sam3.pt
 
 ```dotenv
 VGGT_OMEGA_BACKEND=local
-VGGT_OMEGA_MODEL_DIR=model/vggt_omega
+VGGT_OMEGA_MODEL_DIR=data/models/vggt_omega
 VGGT_OMEGA_DEVICE=cuda
 SAM3_BACKEND=local
-SAM3_MODEL_DIR=model/sam3
+SAM3_MODEL_DIR=data/models/sam3
 SAM3_DEVICE=cuda
 ```
 
@@ -97,40 +99,30 @@ VGGT_OMEGA_PROTOCOL=tcp
 SAM3_BACKEND=local
 ```
 
-SAM3 远端对应 `SAM3_BACKEND=remote`、`SAM3_HOST`、`SAM3_PORT`、`SAM3_PROTOCOL=tcp`。旧 CLI 显式传入的 SAM3 host/port 继续表示远端调用。Stage 1、物体评估、提示词试验、SIM batch 与练习 CLI 共享配置。
+SAM3 远端对应 `SAM3_BACKEND=remote`、`SAM3_HOST`、`SAM3_PORT`、`SAM3_PROTOCOL=tcp`。旧 CLI 显式传入的 SAM3 host/port 继续表示远端调用。Stage 1、物体评估和提示词试验共享配置。
 
 ## 4. 检查与最小示例
 
 检查配置、文件、源码版本和设备；`--load` 进一步串行加载并释放两个本地模型，但不代替真实推理：
 
 ```bash
-uv run --no-sync real2sim-models check
-uv run --no-sync real2sim-models check --load
+uv run --no-sync real2sim models check
+uv run --no-sync real2sim models check --load
 ```
 
 使用自己的至少 32 帧任务视频，选择一个尚不存在的输出目录：
 
 ```bash
-uv run --no-sync real2sim-local-example \
+uv run --no-sync real2sim perceive \
   --video /path/to/task.mp4 --robot piper \
-  --output runs/local-example
+  --output data/runs/local-example
 ```
 
 示例输出保持 Stage 1 的帧、深度、相机、mask 和 manifest 结构，并增加 `previews/` 和 `example_report.json`。报告包含后端、源码提交、checkpoint SHA256、预处理版本、设备、Torch/CUDA 版本、耗时和峰值显存。目录已存在即拒绝执行；失败状态保留诊断，不能当作复现通过。
 
-输入为 32 帧、512×288 RGB；VGGT-Ω 直接使用此像素网格，不调用会裁剪宽图的默认加载器。深度、置信度与内参需与该网格对齐。SAM3 实例 mask 恢复到原图网格后，Stage 1 合并实例，SIM 按现有规则选实例。VGGT 与 SAM3 串行执行，阶段切换释放模型；显存不足会报错，不自动减少帧数或分辨率。
+输入为 32 帧、512×288 RGB；VGGT-Ω 直接使用此像素网格，不调用会裁剪宽图的默认加载器。深度、置信度与内参需与该网格对齐。SAM3 实例 mask 恢复到原图网格后，Stage 1 合并实例，物体评估按分数与面积规则选择实例。VGGT 与 SAM3 串行执行，阶段切换释放模型；显存不足会报错，不自动减少帧数或分辨率。
 
 这一步只验收感知输出，不完成 URDF 配准、米制尺度锚定或 Blender 场景交付。后续步骤参考 Stage 1 文档。
-
-已有 Stage 3 场景时，可用练习 CLI 验证一次本地 SAM3 RGB-D 观测。Linux 无显示服务器时设置 `MUJOCO_GL=egl`，scene 必须是已导出的完整场景，不能替换成视频或 `initial.blend`：
-
-```bash
-MUJOCO_GL=egl uv run --no-sync python scripts/stage3_cli.py \
-  --scene /path/to/scene_for_sim.xml --robot piper \
-  --image-dir runs/local-sim-observation
-```
-
-在 CLI 输入 `observe`，查看 RGB-D 图像及分割后的物体观测，再输入 `quit`。也可指定物体提示词，例如 `observe {"blue_block":"blue block"}`；键名必须属于该场景公开物体。该命令不需要 `SAM3_HOST/PORT`。
 
 ## 5. 验证边界
 
@@ -138,11 +130,42 @@ MUJOCO_GL=egl uv run --no-sync python scripts/stage3_cli.py \
 
 ```bash
 export RSR_MODEL_TEST_VIDEO=/path/to/task.mp4
-export RSR_MODEL_TEST_SCENE=/path/to/scene_for_sim.xml
-export RSR_MODEL_TEST_ROBOT=piper
-uv run --no-sync python -m pytest tests/integration -m models
+uv run --no-sync python -m pytest dev/tests/integration -m models
 ```
 
-没有提供相应的显式输入或缺少 CUDA 时真实模型测试会跳过；跳过不代表推理通过。视频测试和 SIM 观测测试分别读取这些输入。
+没有提供相应的显式输入或缺少 CUDA 时真实模型测试会跳过；跳过不代表推理通过。保留的真实模型测试读取上述视频，验证视频感知输出。
 
 必须保存真实运行报告及依赖版本后，才能声明本地完整推理复现通过。推理性能和峰值显存受视频、GPU 与模型设备设置影响，不引用上游不同输入尺寸的显存表作为本流程保证。
+
+## Windows 本机开发环境
+
+Windows x64 的锁定依赖选择 PyTorch 2.6.0 CPU wheel，Linux x86_64 继续使用 CUDA 12.4 wheel。本项目的场景构建/物理探针不需要运动控制 IK，因此 `sim` extra 不安装 Pinocchio。
+
+本机隔离环境位于仓库 `.venv/`；便携 Blender 位于 `.venv/tools/`，路径保存在忽略的 `.env` 中。可以直接调用，不需要修改系统 PATH 或 PowerShell 执行策略：
+
+```powershell
+& .venv/Scripts/real2sim.exe --help
+& .venv/Scripts/python.exe -m pytest dev/tests/unit dev/tests/integration -m 'not models' -ra
+& .venv/Scripts/real2sim.exe models check
+```
+
+离线测试覆盖代码、机器人资产、Blender 场景和 MuJoCo 物理检查。模型检查因没有 checkpoint 而失败属于输入未准备，不能把安装成功写成真实模型推理通过。`.env` 的 CPU 默认值用于感知开发工具；场景 YAML 中显式的 `perception.device` 会覆盖它。
+
+Ryzen AI 9 365 / Radeon 880M 在 AMD 官方 Windows ROCm 支持矩阵中，但其 PyTorch 2.9.1 / Python 3.12 / 指定驱动方案与本仓库的 PyTorch 2.6 锁定栈不同，需要独立适配和验收。本轮不修改显卡驱动，也不声称 32 帧 VGGT-Ω/SAM3 已在该核显通过。
+
+官方依据：[AMD 支持矩阵](https://rocm.docs.amd.com/projects/radeon-ryzen/en/latest/docs/compatibility/compatibilityryz/windows/windows_compatibility.html)、[AMD Windows 安装要求](https://rocm.docs.amd.com/projects/radeon-ryzen/en/latest/docs/install/installryz/windows/install-pytorch.html)、[PyTorch 2.6 安装矩阵](https://docs.pytorch.org/get-started/previous-versions/)。
+
+### 2026-10-23 Windows 本机安装验证
+
+硬件：Ryzen AI 9 H 365（10 核 20 线程）、约 32 GB 内存、Radeon 880M 核显，Windows 11 x64。隔离环境为 Python 3.11、PyTorch 2.6.0+cpu、torchvision 0.21.0+cpu、NumPy 1.26.4、OpenCV 4.11.0、MuJoCo 3.14.0、Blender 4.5.15 LTS；具体 Python 依赖以 `uv.lock` 为准。
+
+安装检查通过：依赖一致性、锁文件一致性、三个固定子模块及嵌套机器人资产、CLIP 分词器、CLI、Blender CPU/Eevee 渲染、MuJoCo 物理步进与离屏渲染。完整离线命令：
+
+```powershell
+$env:BLENDER_BIN = (Resolve-Path '.venv/tools/blender-4.5.15-windows-x64/blender.exe').Path
+& .venv/Scripts/python.exe -B -m pytest -p no:cacheprovider dev/tests/unit dev/tests/integration dev/tests/end_to_end -m 'not models' -q -ra
+```
+
+2026-10-24 顶层布局归并后重新完整回归：291 passed、3 skipped、1 deselected。测试由 `pyproject.toml` 从 `dev/tests/` 自动发现，资产、模型和输出分别位于 `data/assets/`、`data/models/`、`data/runs/`。跳过的是两个 POSIX 权限测试和未提供 `RSR_E2E_CONFIG` 的真实端到端测试；真实 checkpoint 视频测试未选中。编码与日志处理已显式使用 UTF-8。唯一安装命令为 `real2sim`，24 个命令帮助检查通过；直接从虚拟环境启动时，子工具也使用同一 Python 环境。
+
+模型环境检查仅报告两个官方 checkpoint 缺失。没有下载权重或运行真实 VGGT-Ω/SAM3 推理；没有验证 Radeon GPU 加速、真实视频全流程或论文完整结果。本机 CPU 开发环境安装完成不等于上述验证完成。

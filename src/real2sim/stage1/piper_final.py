@@ -10,14 +10,14 @@ from pathlib import Path
 
 import numpy as np
 
-from .franka_final import refine_scene, write_gallery
-from .pipeline import sha256
+from .refinement import refine_scene, write_gallery
+from .inference import sha256
 from .sim3_registration import ROOT
 
 
 def refine_task(scene: str, initializations: Path, processed: Path, output: Path,
                 seed_rank: int = 1, target: Path | None = None) -> dict:
-    model_root = ROOT / "asset/robot_surfaces/piper"
+    model_root = ROOT / "data/assets/robot_surfaces/piper"
     models = {}
     for size in (5000, 10000, 40000):
         with np.load(model_root / f"surface_{size}.npz") as data:
@@ -36,7 +36,7 @@ def batch(initializations: Path, processed: Path, output: Path, *, only: str | N
     scenes = [scene for scene in scenes if (raw / f"{scene}.mp4").is_file()
               and (processed / "piper/stage1" / scene / "manifest.json").is_file()
               and sha256(raw / f"{scene}.mp4") == json.loads(
-                  (processed / "piper/stage1" / scene / "manifest.json").read_text())["video_sha256"]]
+                  (processed / "piper/stage1" / scene / "manifest.json").read_text(encoding="utf-8"))["video_sha256"]]
     if only:
         if only not in scenes:
             raise ValueError(f"Piper scene is missing or stale: {only}")
@@ -54,7 +54,7 @@ def batch(initializations: Path, processed: Path, output: Path, *, only: str | N
                     report.get("initialization_sha256") == sha256(initialization) and
                     report.get("sam3_masks_sha256") and
                     report["sam3_masks_sha256"] == json.loads(
-                        (processed / "piper/stage1" / scene / "manifest.json").read_text()).get("sam3_masks_sha256") and
+                        (processed / "piper/stage1" / scene / "manifest.json").read_text(encoding="utf-8")).get("sam3_masks_sha256") and
                     report.get("status") == "candidate_unverified"):
                 results[scene] = report
                 progress(f"{scene}: reuse validated cached optimization")
@@ -78,14 +78,14 @@ def batch(initializations: Path, processed: Path, output: Path, *, only: str | N
     return [results[scene] for scene in scenes]
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Refine top-1 of 128 Piper poses with multiscale Sim(3)")
-    parser.add_argument("--initializations", type=Path, default=ROOT / "runs/piper_initial_128_review/piper")
+    parser.add_argument("--initializations", type=Path, default=ROOT / "data/runs/piper_initial_128_review/piper")
     parser.add_argument("--processed", type=Path, default=ROOT / "data/processed")
-    parser.add_argument("--output", type=Path, default=ROOT / "runs/piper_stage1_final_128")
+    parser.add_argument("--output", type=Path, default=ROOT / "data/runs/piper_stage1_final_128")
     parser.add_argument("--only")
     parser.add_argument("--workers", type=int, default=4)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     results = batch(args.initializations, args.processed, args.output,
                     only=args.only, workers=args.workers)
     if any(result["status"] == "failed" for result in results):

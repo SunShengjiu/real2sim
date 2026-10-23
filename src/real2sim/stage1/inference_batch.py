@@ -9,10 +9,10 @@ import uuid
 from pathlib import Path
 
 import numpy as np
-from perception.sam3 import DEFAULT_PROMPT
-from perception.config import backend_manifest, release_backend
+from real2sim.perception.sam3 import DEFAULT_PROMPT
+from real2sim.perception.config import backend_manifest, release_backend
 
-from real2sim.stage1.pipeline import backends, extract, save_json, sha256, validate
+from real2sim.stage1.inference import backends, extract, save_json, sha256, validate
 from real2sim.stage1.registration import REFERENCE
 from real2sim.stage1.promote_sam3_masks import mask_digest
 
@@ -23,7 +23,7 @@ GROUPS = {"frank": "franka", "piper": "piper"}
 
 def complete(directory: Path, video_hash: str) -> bool:
     try:
-        manifest = json.loads((directory / "manifest.json").read_text())
+        manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
     except (FileNotFoundError, ValueError):
         return False
     if (manifest.get("schema") != "stage1-inference-v1" or
@@ -117,7 +117,7 @@ def infer_video(video: Path, directory: Path, group: str, video_hash: str,
     except Exception as exc:
         manifest["status"] = "failed"
         manifest["error"] = {"type": type(exc).__name__, "message": str(exc)}
-        (directory / "error.log").write_text(traceback.format_exc())
+        (directory / "error.log").write_text(traceback.format_exc(), encoding="utf-8")
     finally:
         release_backend(vggt)
         release_backend(sam3)
@@ -147,7 +147,7 @@ def batch(raw_root: Path = ROOT / "data/raw", processed_root: Path = ROOT / "dat
         video_hash = sha256(video)
         if not force and complete(target, video_hash):
             progress(f"[{position}/{len(videos)}] {robot}/{video.name}: existing inference complete")
-            manifest = json.loads((target / "manifest.json").read_text())
+            manifest = json.loads((target / "manifest.json").read_text(encoding="utf-8"))
         else:
             progress(f"[{position}/{len(videos)}] {robot}/{video.name}")
             staging = parent / f".pending-{video.stem}-{uuid.uuid4().hex[:8]}"
@@ -165,13 +165,13 @@ def batch(raw_root: Path = ROOT / "data/raw", processed_root: Path = ROOT / "dat
     return results
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Serial 32-frame VGGT-Ω and SAM3 inference (no registration)")
     parser.add_argument("--raw-root", type=Path, default=ROOT / "data/raw")
     parser.add_argument("--processed-root", type=Path, default=ROOT / "data/processed")
     parser.add_argument("--only", help="Process a single video by filename or stem")
     parser.add_argument("--force", action="store_true", help="Re-run complete videos, archiving previous results")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     results = batch(args.raw_root, args.processed_root, selected=args.only, force=args.force)
     if any(result["status"] != "inference_complete" for result in results):
         parser.exit(1, "Some videos failed; inspect per-video manifest.json and stage1_batch_summary.json\n")

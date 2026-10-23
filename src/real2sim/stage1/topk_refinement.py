@@ -147,7 +147,7 @@ def run_scene(scene: str, initializations: Path, processed: Path, output: Path,
     manifest, cameras, depths, masks, observed, counts = load_observations(source, held_out=())
     if manifest["robot"] != "piper" or [entry["frame"] for entry in counts] != list(ALL_FRAMES):
         raise ValueError("expected all 32 Piper observation frames")
-    model_root = ROOT / "asset/robot_surfaces/piper"
+    model_root = ROOT / "data/assets/robot_surfaces/piper"
     models = {}
     for size in (5000, 10000, 40000):
         with np.load(model_root / f"surface_{size}.npz") as data:
@@ -202,17 +202,17 @@ def run_scene(scene: str, initializations: Path, processed: Path, output: Path,
     return report
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Refine the Piper top K Sim(3) seeds using all 32 frames")
     parser.add_argument("--scene", default="open_drawer")
-    parser.add_argument("--initializations", type=Path, default=ROOT / "runs/initial_poses_256/piper")
+    parser.add_argument("--initializations", type=Path, default=ROOT / "data/runs/initial_poses_256/piper")
     parser.add_argument("--processed", type=Path, default=ROOT / "data/processed")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--local-passes", type=int, default=2)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if args.local_passes < 0:
         parser.error("--local-passes must not be negative")
-    output = args.output or ROOT / "runs/topk_refinement/piper" / args.scene
+    output = args.output or ROOT / "data/runs/topk_refinement/piper" / args.scene
     report = run_scene(args.scene, args.initializations, args.processed, output,
                        passes=args.local_passes)
     print(json.dumps({key: report[key] for key in ("status", "scene", "k", "final_order", "elapsed_seconds")}, indent=2))

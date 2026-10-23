@@ -1,3 +1,11 @@
+# Unified Run Contract
+
+The main CLI stores one resolved `config.json`, one run `manifest.json`, and independent stage attempt directories under `data/runs/<run-id>/`. Completed stages have relative attempt paths and SHA256 inventories. Resume rejects changed sources, inputs, weights, dependency versions or completed artifacts. Failed attempts are preserved and retried as new attempts.
+
+Stage 1 delivery declares `robot`, `scene_id` and `task_description`; Stage 2 delivery declares the robot and task. Readers retain historical layout-based fallback. `delivery/manifest.json` inventories a portable scene bundle with relative runtime asset paths. Historical evidence under `reports/` may retain absolute source paths, which are not used to load the scene.
+
+The detailed stage formats below also document the older readers and outputs.
+
 # Data Contracts
 
 This document describes the current public implementation, including the
@@ -60,7 +68,7 @@ and source provenance; do not relabel historical outputs as fresh inference.
 SAM3's internal instance interface returns `(K,H,W)` boolean masks and `(K,)`
 scores on the requested image grid. No detection is `K=0`. Stage 1 discards
 instance identity by unioning the masks; old union-only caches cannot reconstruct
-individual scores. SIM uses instance selection before depth backprojection.
+individual scores. Object evaluation can select a single instance before depth backprojection.
 
 ## Coordinates And Metric Anchoring
 
@@ -113,7 +121,7 @@ The root robot has identity world transform in official delivered scenes.
 `accepted=false`, because production fitting and scoring share all 32 frames.
 Do not infer acceptance from `initial.blend` existing.
 
-The legacy single-video `real2sim-stage1` path uses `schema=stage1-v1`,
+The legacy single-video `real2sim tools stage1-legacy` path uses `schema=stage1-v1`,
 `reconstruction.npz`, `robot_masks.npz`, `view_XX.*` and `scene_spec.json` in a
 unique run directory. It has separate metric-scale and held-out checks. Its
 `manifest.json` is not interchangeable with the production
@@ -129,9 +137,9 @@ signature and `geometry/round_NNN/` candidate/edit/render/evaluation artifacts.
 `geometry/final.blend`.
 
 The final manifest references the scene, plan/input provenance and four evaluated
-RGB views. The Stage 3 reader currently derives the robot from the directory
-layout `<root>/<robot>/stage2/<task>/geometry/stage2_manifest.json`; preserve this
-layout even inside a new `runs/` root. Each evaluation records depth MAE, Lab Delta E76 and coverage per
+RGB views. New deliveries declare `robot` and `task_description` explicitly. Historical
+deliveries without these fields derive the robot from the directory layout `<root>/<robot>/stage2/<task>/geometry/stage2_manifest.json`; preserve this
+layout even inside a new `data/runs/` root. Each evaluation records depth MAE, Lab Delta E76 and coverage per
 reference view, with the exact thresholds. A mean-depth threshold alone does not
 prove joint acceptance. The reference depth is a reconstructed pseudo-reference,
 not independently measured ground truth. SSIM and object point-cloud metrics
@@ -146,7 +154,7 @@ recomputes metrics; stale report flags cannot establish acceptance. Missing or
 changed provenance requires a new run directory. Existing delivery readers
 still accept historical manifests; this requirement applies to continuation.
 
-## Stage 3 And SIM Scene Bundle
+## Stage 3 Scene Bundle: Real-to-Sim Output
 
 Stage 3 preserves the accepted Blend source and exports `scene.xml`,
 `assets/meshes/task/`, robot assets, extracted image resources,
@@ -161,34 +169,10 @@ than the first export; read `final_manifest.json` or the batch's `final_scene`
 instead of guessing from a `mujoco_vN/` directory. A physical status of
 `provisional` is a simulation conclusion, not measured calibration.
 
-`scripts/prepare_sim_scene.py` removes the embedded robot while preserving its
-empty mount, task geometry and reference cameras. It creates
-`scene_for_sim.xml`, `scene_derivation.json` with hashes and an `assets` symlink
-to the export bundle. robot_control inserts the controlled robot at runtime.
-The derived XML alone is not portable; keep/copy the source asset bundle and
-repair the symlink when relocating it.
-
-Derivation removes actuator, equality and contact entries that reference named
-elements of the embedded robot. Unnamed robot elements cannot match omitted
-attributes on task entries; task motors, welds and contact rules are preserved.
-
-## SIM Observation And Policy Evidence
-
-`Stage3RGBDObservation.observe()` returns `objects`, `images.wrist`,
-`images.third_person` and camera labels. Each detected object has estimated
-`xyz_m`, `xy_m` and `bbox_pixels=[x0,y0,x1,y1]` (exclusive right/bottom). A name
-must belong to the scene's public object set; absent/insufficient segmentation
-omits the name. The position is a robust statistic of visible depth points in
-the estimated world frame, not the full object's center of mass or simulator
-truth. Image payloads include absolute paths; the practice CLI removes base64
-from printed JSON.
-
-Three-pass policy runs keep per-pass `policy.py`, `experience.md`, reports,
-actions, rendered evidence and audit logs. `experience_memory.md` carries
-development notes forward. Privileged object poses are allowed only in the first
-pass. A policy saying it completed, or a probe passing, is distinct from external
-task verification and held-out policy evaluation. Save video review evidence and
-the locked policy bundle before making success claims.
+The Real-to-Sim workflow ends with this scene bundle and its physical-check
+evidence. Keep the XML together with its referenced meshes, textures and
+manifests when moving it. Policy generation, policy evaluation and real-robot
+execution are outside this checkout's scope.
 
 Weights, credentials, cached model files, raw task recordings and local run
 artifacts are ignored and must not be added merely to make recorded absolute

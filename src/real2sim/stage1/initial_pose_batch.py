@@ -91,7 +91,7 @@ def visualize_scene(directory: Path, output: Path, rotations: int = 48) -> dict:
     started = time.monotonic()
     manifest, cameras, depths, masks, observed, counts = load_observations(directory, held_out=())
     robot = manifest["robot"]
-    model_directory = ROOT / "asset/robot_surfaces" / robot
+    model_directory = ROOT / "data/assets/robot_surfaces" / robot
     with np.load(model_directory / "surface_40000.npz") as data:
         full_model = data["points"].astype(float)
     model_center, observed_center, scale = center_and_scale(full_model, observed)
@@ -165,7 +165,7 @@ def write_index(results: list[dict], output: Path) -> None:
         encoding="utf-8")
 
 
-def batch(processed: Path = ROOT / "data/processed", output: Path = ROOT / "runs/initial_poses",
+def batch(processed: Path = ROOT / "data/processed", output: Path = ROOT / "data/runs/initial_poses",
           rotations: int = 48, progress=print, robot: str | None = None,
           active_only: bool = False) -> list[dict]:
     if rotations < 1:
@@ -174,13 +174,13 @@ def batch(processed: Path = ROOT / "data/processed", output: Path = ROOT / "runs
               for scene in sorted((processed / name / "stage1").iterdir()) if scene.is_dir()
               and not scene.name.startswith(".")]
     if active_only:
-        from .pipeline import sha256
+        from .inference import sha256
         scenes = [(name, scene) for name, scene in scenes
                   if (processed / name / "stage1" / scene.name / "manifest.json").is_file()
                   and (ROOT / "data/raw" / ("frank" if name == "franka" else name) /
                        f"{scene.name}.mp4").is_file()
                   and sha256(ROOT / "data/raw" / ("frank" if name == "franka" else name) /
-                             f"{scene.name}.mp4") == json.loads((scene / "manifest.json").read_text())["video_sha256"]]
+                             f"{scene.name}.mp4") == json.loads((scene / "manifest.json").read_text(encoding="utf-8"))["video_sha256"]]
     if not scenes:
         raise ValueError(f"no processed scenes in {processed}")
     output.mkdir(parents=True, exist_ok=True)
@@ -209,18 +209,18 @@ def batch(processed: Path = ROOT / "data/processed", output: Path = ROOT / "runs
     return results
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Visualize unrefined initial poses for all cached scenes")
     parser.add_argument("--processed", type=Path, default=ROOT / "data/processed")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--rotations", type=int)
     parser.add_argument("--robot", choices=("franka", "piper"))
     parser.add_argument("--active-only", action="store_true", help="Skip obsolete scenes with no matching raw video")
-    arguments = parser.parse_args()
+    arguments = parser.parse_args(argv)
     rotations = arguments.rotations if arguments.rotations is not None else (
         PIPER_INITIAL_ROTATIONS if arguments.robot == "piper" else 48)
-    output = arguments.output or (ROOT / "runs/piper_initial_128_review" if arguments.robot == "piper"
-                                  and rotations == PIPER_INITIAL_ROTATIONS else ROOT / "runs/initial_poses")
+    output = arguments.output or (ROOT / "data/runs/piper_initial_128_review" if arguments.robot == "piper"
+                                  and rotations == PIPER_INITIAL_ROTATIONS else ROOT / "data/runs/initial_poses")
     result = batch(arguments.processed, output, rotations,
                    robot=arguments.robot, active_only=arguments.active_only)
     if any(item["status"] == "failed" for item in result):

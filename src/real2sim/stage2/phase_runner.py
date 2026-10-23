@@ -61,10 +61,12 @@ def _load_delivery(input_dir: Path) -> tuple[dict[str, Any], tuple[int, ...]]:
 
 
 def _robot_root_name(input_dir: Path) -> str:
+    manifest, _ = _load_delivery(input_dir)
+    robot = manifest.get("robot", input_dir.parent.parent.name)
     try:
-        return ROBOT_ROOT_NAMES[input_dir.parent.parent.name]
+        return ROBOT_ROOT_NAMES[robot]
     except KeyError as exc:
-        raise ValueError(f"unsupported Stage 1 robot: {input_dir.parent.parent.name}") from exc
+        raise ValueError(f"unsupported Stage 1 robot: {robot}") from exc
 
 
 def _reference_rgb_paths(input_dir: Path) -> list[Path]:
@@ -640,6 +642,7 @@ def run_geometry(input_dir: Path, output: Path, task_description: str | None = N
                       accepted_round=accepted_round.name)
         _write_json(geometry_dir / "stage2_manifest.json", {
             "schema": "stage2-refinement-delivery-v1", "accepted": True,
+            "robot": manifest.get("robot", input_dir.parent.parent.name), "task_description": task,
             "scene": str(final), "scene_sha256": _sha256(final),
             "evaluation": report, "plan": str(plan_path), "thread_id": None,
         })
@@ -654,6 +657,7 @@ def run_geometry(input_dir: Path, output: Path, task_description: str | None = N
             record.update(final_scene=str(final), final_evaluation=baseline_report)
             _write_json(geometry_dir / "stage2_manifest.json", {
                 "schema": "stage2-refinement-delivery-v1", "accepted": True,
+                "robot": manifest.get("robot", input_dir.parent.parent.name), "task_description": task,
                 "scene": str(final), "scene_sha256": _sha256(final),
                 "evaluation": baseline_report, "plan": str(plan_path), "thread_id": None,
             })
@@ -757,6 +761,7 @@ def run_geometry(input_dir: Path, output: Path, task_description: str | None = N
                         record["final_evaluation"] = report
                         _write_json(geometry_dir / "stage2_manifest.json", {
                             "schema": "stage2-refinement-delivery-v1",
+                            "robot": manifest.get("robot", input_dir.parent.parent.name), "task_description": task,
                             "accepted": True, "scene": str(final),
                             "scene_sha256": _sha256(final), "evaluation": report,
                             "plan": str(plan_path), "thread_id": thread.id,

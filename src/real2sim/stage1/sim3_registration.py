@@ -153,10 +153,10 @@ def ranking(model: np.ndarray, observed: np.ndarray, pose: tuple, camera: dict,
 
 
 def load_observations(directory: Path, *, held_out: tuple[int, ...] = REFERENCE):
-    manifest = json.loads((directory / "manifest.json").read_text())
+    manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
     if manifest.get("status") != "inference_complete":
         raise ValueError(f"inference is not complete: {directory}")
-    camera = json.loads((directory / "camera.json").read_text())
+    camera = json.loads((directory / "camera.json").read_text(encoding="utf-8"))
     if camera.get("extrinsics_direction") != "world_to_camera":
         raise ValueError("expected world_to_camera extrinsics")
     camera = {key: np.asarray(camera[key], dtype=float) for key in ("intrinsics", "extrinsics")}
@@ -195,7 +195,7 @@ def register_scene(directory: Path, output: Path, rotations: int = 48) -> dict:
     robot = manifest["robot"]
     if robot not in ("piper", "franka"):
         raise ValueError(f"unsupported robot: {robot}")
-    model_directory = ROOT / "asset/robot_surfaces" / robot
+    model_directory = ROOT / "data/assets/robot_surfaces" / robot
     models = {}
     for size in SIZES:
         with np.load(model_directory / f"surface_{size}.npz") as data:
@@ -264,12 +264,12 @@ def register_scene(directory: Path, output: Path, rotations: int = 48) -> dict:
     return result
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Experimental fixed-arm multiscale similarity registration")
     parser.add_argument("--input", type=Path, required=True, help="cached processed/<robot>/stage1/<video>")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--rotations", type=int, default=48)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if args.rotations < 1:
         parser.error("--rotations must be positive")
     result = register_scene(args.input, args.output, rotations=args.rotations)

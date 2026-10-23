@@ -120,7 +120,7 @@ def export_metric_scene(source: Path, output: Path, result: dict) -> dict:
 
 
 def backfill(results: Path, processed: Path) -> list[dict]:
-    from .franka_final import write_gallery
+    from .refinement import write_gallery
 
     index = json.loads((results / "index.json").read_text(encoding="utf-8"))
     if not index or any(item.get("robot") != "franka" or item.get("method") != METHOD
@@ -145,7 +145,7 @@ def backfill(results: Path, processed: Path) -> list[dict]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Export Franka Stage 1 metric depths and camera poses")
-    parser.add_argument("--results", type=Path, default=ROOT / "runs/franka_stage1_final_48")
+    parser.add_argument("--results", type=Path, default=ROOT / "data/runs/franka_stage1_final_48")
     parser.add_argument("--processed", type=Path, default=ROOT / "data/processed")
     args = parser.parse_args()
     results = backfill(args.results, args.processed)

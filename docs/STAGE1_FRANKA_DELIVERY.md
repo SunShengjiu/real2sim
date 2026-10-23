@@ -2,10 +2,10 @@
 
 以 `data/raw/frank/close_drawer.mp4` 为例。文件名是任务标识；manifest 记录原视频路径、SHA-256、真实抽帧索引及远端/本地模型信息。原视频不复制到处理目录。
 
-1. `uv run real2sim-stage1-infer-batch` 串行均匀抽取 32 帧，缩放补边到 512×288，依次调用 VGGT-Ω（32 帧相机、深度和置信度）及 SAM3（32 帧 `robotic arm` 掩码）。此时的 `depth/`、`camera.json` 均为**未定尺度的 VGGT 单位**；原始深度和置信度作为重跑配准的输入缓存保留。
-2. `uv run real2sim-stage1-init-batch --rotations 48` 将 32 帧机械臂掩码内的深度反投影到 VGGT 世界；与固定关节姿态、米制 FR3 URDF 的表面点云对齐中心及粗尺度，按 32 帧综合评分 48 个确定性的 SO(3) 初值。四个参考序号为 0、10、21、31，但**没有留出**作当前算法的独立验收。
-3. `uv run real2sim-stage1-franka-final` 对每任务的第一名初值依次做 5000、10000、20000 点 Sim(3) ICP，以及 ±15°、8°、4°、2° 的旋转搜索和平移/尺度再调整。结果记于 `runs/franka_stage1_final_48/<任务>/result.json`；它是**可丢弃的优化诊断**，不是 Stage 2 的放行报告。以 URDF 米制几何求得 `s`（VGGT 单位/米），深度、世界到相机外参平移和机械臂基座平移均除以 `s`；旋转及机器人真实尺寸不缩放。
-4. `uv run real2sim-stage1-franka-deliver --prune` 检查 32 帧米制数据与原始数据/尺度一致、模板 URDF 及配准结果相符；以 FR3 根部为交付世界原点及坐标轴，同步重基 32 帧相机外参，基于固定关节姿态的 URDF **visual** 网格生成一个 FR3，并以 0、10、21、31 帧生成四个参考相机。将四张 RGB 打包进 `.blend`；保存、重新打开，核查四台相机、机器人变换、画面参数和内嵌图像。成功后只清理可重建的 `raw_vggt.npz`、32 张深度伪彩和 32 张掩码预览。单任务可加 `--only close_drawer`；失败不清理推理输入。设置 `BLENDER_BIN` 可指定 Blender 程序。
+1. `uv run real2sim tools stage1-infer-batch` 串行均匀抽取 32 帧，缩放补边到 512×288，依次调用 VGGT-Ω（32 帧相机、深度和置信度）及 SAM3（32 帧 `robotic arm` 掩码）。此时的 `depth/`、`camera.json` 均为**未定尺度的 VGGT 单位**；原始深度和置信度作为重跑配准的输入缓存保留。
+2. `uv run real2sim tools stage1-init-batch --rotations 48` 将 32 帧机械臂掩码内的深度反投影到 VGGT 世界；与固定关节姿态、米制 FR3 URDF 的表面点云对齐中心及粗尺度，按 32 帧综合评分 48 个确定性的 SO(3) 初值。四个参考序号为 0、10、21、31，但**没有留出**作当前算法的独立验收。
+3. `uv run real2sim tools stage1-refine` 对每任务的第一名初值依次做 5000、10000、20000 点 Sim(3) ICP，以及 ±15°、8°、4°、2° 的旋转搜索和平移/尺度再调整。结果记于 `data/runs/franka_stage1_final_48/<任务>/result.json`；它是**可丢弃的优化诊断**，不是 Stage 2 的放行报告。以 URDF 米制几何求得 `s`（VGGT 单位/米），深度、世界到相机外参平移和机械臂基座平移均除以 `s`；旋转及机器人真实尺寸不缩放。
+4. `uv run real2sim tools stage1-deliver --robot franka --prune` 检查 32 帧米制数据与原始数据/尺度一致、模板 URDF 及配准结果相符；以 FR3 根部为交付世界原点及坐标轴，同步重基 32 帧相机外参，基于固定关节姿态的 URDF **visual** 网格生成一个 FR3，并以 0、10、21、31 帧生成四个参考相机。将四张 RGB 打包进 `.blend`；保存、重新打开，核查四台相机、机器人变换、画面参数和内嵌图像。成功后只清理可重建的 `raw_vggt.npz`、32 张深度伪彩和 32 张掩码预览。单任务可加 `--only close_drawer`；失败不清理推理输入。设置 `BLENDER_BIN` 可指定 Blender 程序。
 
 正式任务目录为 `data/processed/franka/stage1/close_drawer/`：
 
@@ -23,4 +23,4 @@
 
 此前机械臂整体合并为一个无材质 OBJ，Blender 显示为灰白。现在按 URDF 材质颜色拆分 visual、各色合并后写入 Blender 材质；几何、根位姿和相机不变。打开 `.blend` 后使用 **材质预览**或实体模式的「材质」颜色；离线渲染还需要 Stage 2 的灯光/世界照明。
 
-`runs/initial_poses/`、`runs/franka_stage1_final_48/` 中的 48 候选、优化过程与总览仅用于调试；正式交付不复制其点云、每步截图及搜索历史。因当前注册入口仍依赖原始 `depth/`、`camera.json` 和初始化缓存，**不要直接删除这些输入或整个 `runs/initial_poses/`**。
+`data/runs/initial_poses/`、`data/runs/franka_stage1_final_48/` 中的 48 候选、优化过程与总览仅用于调试；正式交付不复制其点云、每步截图及搜索历史。因当前注册入口仍依赖原始 `depth/`、`camera.json` 和初始化缓存，**不要直接删除这些输入或整个 `data/runs/initial_poses/`**。

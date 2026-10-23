@@ -50,7 +50,7 @@ def run_task(task: Path, processed: Path, run_id: str, run_physics: bool = True,
              runs_root: Path | None = None, semantics_dir: Path | None = None,
              reuse_semantics_from: Path | None = None) -> dict[str, Any]:
     delivery = _stage2_delivery(task)
-    root = runs_root or REPO_ROOT / "runs/stage3/workspace"
+    root = runs_root or REPO_ROOT / "data/runs/stage3/workspace"
     robot_root = root / delivery["robot"]
     if root.resolve() == processed.resolve():
         robot_root /= "stage3"
@@ -177,7 +177,7 @@ def _can_resume(task: Path, processed: Path, previous: dict[str, Any]) -> bool:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--processed", type=Path, default=REPO_ROOT / "data/processed")
-    parser.add_argument("--runs-root", type=Path, default=REPO_ROOT / "runs/stage3/workspace")
+    parser.add_argument("--runs-root", type=Path, default=REPO_ROOT / "data/runs/stage3/workspace")
     parser.add_argument("--semantics-dir", type=Path,
                         help="reuse SHA256-matched reviewed classifications from ROBOT/TASK.json")
     parser.add_argument("--reuse-semantics-from", type=Path,
@@ -201,7 +201,7 @@ def main(argv: list[str] | None = None) -> int:
         selected = [task for task in selected if task.name in args.task]
     if not selected:
         parser.error("no accepted Stage 2 deliveries match the selection")
-    log_root = processed / "stage3" if runs_root == processed else REPO_ROOT / "runs/stage3"
+    log_root = processed / "stage3" if runs_root == processed else REPO_ROOT / "data/runs/stage3"
     log = log_root / f"batch_{args.run_id}" / "batch_manifest.json"
     if log.exists():
         parser.error(f"batch run already exists: {log}")

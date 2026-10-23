@@ -11,10 +11,10 @@ from urllib.parse import quote
 
 import cv2
 import numpy as np
-from perception.sam3 import DEFAULT_PROMPT
-from perception.config import create_sam3, release_backend
+from real2sim.perception.sam3 import DEFAULT_PROMPT
+from real2sim.perception.config import create_sam3, release_backend
 
-from .pipeline import sha256
+from .inference import sha256
 from .sim3_registration import ROOT
 
 
@@ -153,12 +153,12 @@ def run_all(processed: Path, raw: Path, output: Path, service, prompt: str = PRO
     return results
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Trial a SAM3 prompt on all 32 frames of current Piper videos")
     parser.add_argument("--processed", type=Path, default=ROOT / "data/processed/piper/stage1")
     parser.add_argument("--raw", type=Path, default=ROOT / "data/raw/piper")
-    parser.add_argument("--output", type=Path, default=ROOT / "runs/sam3_prompt_trials/piper/base_camera")
-    args = parser.parse_args()
+    parser.add_argument("--output", type=Path, default=ROOT / "data/runs/sam3_prompt_trials/piper/base_camera")
+    args = parser.parse_args(argv)
     service = create_sam3()
     try:
         run_all(args.processed, args.raw, args.output, service)

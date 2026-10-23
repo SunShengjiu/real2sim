@@ -1,0 +1,16 @@
+name: piper
+urdf: ../../external/robot_control/vendor/agx_arm_urdf/piper/urdf/piper_with_gripper_description.xacro
+base_frame: base_link
+# Radians for arm joints; meters for the gripper opening. Keep the robot static.
+joint_positions:
+  joint1: 0.0
+  joint2: 0.5235987755982988
+  joint3: -0.7853981633974483
+  joint4: 0.0
+  joint5: 1.0471975511965976
+  joint6: 0.0
+  gripper: 0.07
+registration:
+  rotations: 128
+  top_k: 3
+  local_passes: 2

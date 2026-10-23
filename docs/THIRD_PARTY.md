@@ -8,14 +8,14 @@
 | VGGT-Ω 512 checkpoint | [facebook/VGGT-Omega](https://huggingface.co/facebook/VGGT-Omega)，`vggt_omega_1b_512.pt` | 需申请访问并接受模型页面条款；Research Materials 包含权重。权重不包含在仓库中。 |
 | Ultralytics SAM3 实现 | [ultralytics/ultralytics v8.4.160](https://github.com/ultralytics/ultralytics/tree/f171c4b7aea56062d77061577e6b878b62e520fb)，`external/ultralytics/` | [AGPL-3.0](../external/ultralytics/LICENSE)；组合、修改、分发及提供网络服务时须评估对应源码与许可义务。商业另有 [Ultralytics Enterprise License](https://www.ultralytics.com/license)，本仓库不提供该授权。 |
 | SAM3 checkpoint | [facebook/sam3](https://huggingface.co/facebook/sam3)，`sam3.pt` | [SAM License](https://github.com/facebookresearch/sam3/blob/main/LICENSE)，2025-11-19 版本；是 Meta 自定义条款，不能将其等同于 Ultralytics AGPL 或 Apache-2.0。需申请访问；条款包含再分发、致谢、贸易管制与用途限制。权重不包含在仓库中。 |
-| CLIP 文本分词依赖 | [ultralytics/CLIP](https://github.com/ultralytics/CLIP/tree/7ffa84b3bfa40c42ecc1c77147a855e69cb2dd40)，锁定 git revision | fork 使用 [AGPL-3.0 LICENSE](https://github.com/ultralytics/CLIP/blob/7ffa84b3bfa40c42ecc1c77147a855e69cb2dd40/LICENSE)，继承 OpenAI CLIP 来源并包含 BPE 词表；保留上游版权与许可。 |
+| CLIP 文本分词依赖 | [ultralytics/CLIP](https://github.com/ultralytics/CLIP/tree/7ffa84b3bfa40c42ecc1c77147a855e69cb2dd40)，固定提交源码归档（锁文件记录 SHA256） | fork 使用 [AGPL-3.0 LICENSE](https://github.com/ultralytics/CLIP/blob/7ffa84b3bfa40c42ecc1c77147a855e69cb2dd40/LICENSE)，继承 OpenAI CLIP 来源并包含 BPE 词表；保留上游版权与许可。 |
 | robot-control | [HY-LiYihan/robot_control](https://github.com/HY-LiYihan/robot_control)，固定 gitlink `6016dd5f20d2146a28e425ce77dfb9430f1173`（公开分支 `codex/fr3-urdf-paths`） | [子模块 LICENSE](../external/robot_control/LICENSE)；vendor 资产分别适用其各自授权，不能由控制包许可证一并覆盖。 |
 
 ## 现有机器人资产
 
 机器人控制子模块引用 AgileX 的 [piper_sdk](https://github.com/agilexrobotics/piper_sdk)、[piper_isaac_sim](https://github.com/agilexrobotics/piper_isaac_sim)、[agx_arm_urdf](https://github.com/agilexrobotics/agx_arm_urdf)，还包含 `vendor/fr3_d435i/`。`piper_sdk` 当前 checkout 保留 MIT 声明，`agx_arm_urdf` 保留其 MIT 文件；当前 `piper_isaac_sim` checkout 未发现许可证文件，不能据此假设其中 mesh、URDF 或贴图可以再分发。GitHub API 在 2026-10-14 对该仓库返回 `license: null`，仓库内的 `piper_description/package.xml` 仍写有 `TODO: License declaration`。各供应商的 mesh、URDF、贴图与 SDK 需要独立核对再分发权利，模型实现许可证不覆盖这些文件。
 
-FR3/D435i 已保留独立声明：`external/robot_control/vendor/fr3_d435i/licenses/D435i_Apache-2.0.txt`、`Panda_Hand_Apache-2.0.txt` 和 `mujoco_fr3/LICENSE`。本阶段保留原文件，不重新授权。正式开源发布前仍需完成供应商资产逐项核验，并确认生成并提交的 `asset/robot_surfaces/*` 点云是否属于允许分发的衍生文件；当前 metadata 只记录源路径和 SHA256，不构成许可证明。
+FR3/D435i 已保留独立声明：`external/robot_control/vendor/fr3_d435i/licenses/D435i_Apache-2.0.txt`、`Panda_Hand_Apache-2.0.txt` 和 `mujoco_fr3/LICENSE`。本阶段保留原文件，不重新授权。正式开源发布前仍需完成供应商资产逐项核验，并确认生成并提交的 `data/assets/robot_surfaces/*` 点云是否属于允许分发的衍生文件；当前 metadata 只记录源路径和 SHA256，不构成许可证明。
 
 ### 固定资产版本与待核验范围
 
@@ -31,7 +31,7 @@ FR3/D435i 已保留独立声明：`external/robot_control/vendor/fr3_d435i/licen
 | Franka Hand：`mujoco_fr3/assets/fr3_hand*`、`fr3_finger*` | 5 个 hand、2 个 finger OBJ 和 hand collision STL 与固定上游 Panda 内容匹配；对应上游模型许可与 `licenses/Panda_Hand_Apache-2.0.txt` 全文匹配 | 保留许可；两个 `*_official.obj` 的合并/转换来源及权利仍未确认，不能由拆分网格的匹配一并推定 |
 | D435i：`realsense2_description/`、`mujoco_fr3/assets/d435*` | 9 个拆分 OBJ 与固定 Menagerie/kyokochi `realsense_d435i/assets/` 内容匹配；对应模型许可与 `licenses/D435i_Apache-2.0.txt` 全文匹配，声明 Copyright 2023 Intel Corporation | 保留 Intel 声明与许可；`d435_official.obj` 和 URDF 侧资产的对应关系、转换和权利仍需补齐 |
 | CNC 挂载件：`models/FR3_D435i_mount.*`、`mujoco_fr3/assets/FR3_D435i_mount.obj` | README 说明 CAD 装配尺寸；STL SHA256 为 `185a904aa4c2d679e9caa0d85b54dc07a9bd21d3e2a1b1487d26302afc16c913` | CAD 作者、来源、再分发许可和 STL/OBJ 转换关系 |
-| `asset/robot_surfaces/{piper,franka}/*` | 固定姿态采样的 NPZ/PLY；`metadata.json` 记录 URDF 与部分组合来源哈希 | 继承所有参与网格的许可；未知授权不因采样成为点云而消失 |
+| `data/assets/robot_surfaces/{piper,franka}/*` | 固定姿态采样的 NPZ/PLY；`metadata.json` 记录 URDF 与部分组合来源哈希 | 继承所有参与网格的许可；未知授权不因采样成为点云而消失 |
 
 固定 FR3 描述共有 88 个跟踪文件。主仓库现在固定 `robot_control` 的公开分支提交 `6016dd5f20d2146a28e425ce77dfb9430f1173`；该提交把官方 URDF 中原本指向不存在的 `../meshes/franka_collision/{link0..7,hand}.stl` 改为同一 vendor bundle 中已存在且已核对的 `../mujoco_fr3/assets/link0..7.stl` 与 `fr3_hand_collision.stl`。9 个 replacement 文件的 Git blob 与固定 Menagerie/Panda 来源见下表及 [fr3-assets.json](provenance/fr3-assets.json)，没有添加未知来源网格。独立检查确认 URDF 的 10 个 mesh collision 引用（另含自定义挂载件）均解析到仓库内文件；这修复了路径可用性，但不替代自定义挂载件的授权核验。
 
@@ -77,4 +77,4 @@ Stage 1 表面采样只使用 visual；Stage 3 FR3 导出使用单独的 MJCF。
 
 用户自行准备任务视频及模型权重，并遵守其访问和使用条款。`data/raw/`、`model/` 中实际权重、推理缓存和运行结果默认忽略；本项目不随仓库发布数据集、checkpoint、Hugging Face token 或远端服务凭据。推理 manifest 中 checkpoint 哈希用于追溯，不授予模型或数据许可。
 
-例外：历史上已提交 `runs/sim_processed_stage3_all/piper/put_emergency_stop_button_in_green_storage_box/codex_exact/` 的 policy、视频和 review；Git 忽略规则不会从当前版本或历史中移除它们。正式发布前须核对视频画面中第三方资产与任务素材的许可，并确认该运行产物可以公开。学校 logo 和论文图片分别遵循学校品牌规则与论文作者/出版方授权，不能由主代码 Apache-2.0 许可证自动覆盖。
+本次精简保留了部分历史图片、论文 PDF 和演示视频；这些是非运行时资料，主项目策略代码已经剥离。相关媒体和机器人资产保留原有条款，来源见 [ASSET_SOURCES.md](ASSET_SOURCES.md)。Git 历史仍保留原始项目内容；此次精简没有重写历史。

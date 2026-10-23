@@ -1,0 +1,25 @@
+schema_version: 1
+name: piper_emergency_stop_box
+# User-supplied video; verify the fixed robot pose against configs/robots/piper.yaml.
+video: ../../data/raw/piper/eb1f6c7b5da4441992d20fc372621cb1_raw.mp4
+# Provisional task inferred from the sampled video views.
+task: put the emergency stop button in the green storage box
+robot: ../robots/piper.yaml
+output_root: ../../data/runs
+# Set an executable path here or export BLENDER_BIN.
+blender: null
+perception:
+  vggt_backend: local
+  sam3_backend: local
+  device: cpu
+  vggt_model_dir: ../../data/models/vggt_omega
+  sam3_model_dir: ../../data/models/sam3
+agent:
+  model: gpt-6-astra
+  effort: high
+stage2:
+  max_rounds: 10
+stage3:
+  physics: agent
+  semantics: null
+  render_views: true

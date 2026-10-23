@@ -19,7 +19,7 @@ Piper 使用外部 Xacro 挂到 `piper_mount`，Franka 使用外部 FR3 MJCF 挂
 ```bash
 PYTHONPATH=src python -m real2sim.stage3.mujoco_export \
   --stage2 data/processed/piper/stage2/put_emergency_stop_button_in_green_storage_box \
-  --output runs/stage3/workspace/piper/put_emergency_stop_button_in_green_storage_box/mujoco
+  --output data/runs/stage3/workspace/piper/put_emergency_stop_button_in_green_storage_box/mujoco
 ```
 
 `--stage2` 也可指向 `geometry/stage2_manifest.json`；要求已通过验收，
@@ -33,19 +33,19 @@ Plan 与四张评估 RGB 可读，输出目录为空。模型使用 `gpt-6-astra
 批量处理所有已验收的 Piper 和 Franka Stage 2 场景（顺序执行、逐场景记录失败）：
 
 ```bash
-real2sim-stage3-batch
+real2sim tools stage3-batch
 # 或：PYTHONPATH=src python -m real2sim.stage3.batch --robot piper --task close_cup_lid
 ```
 
 可加 `--export-only` 只做分类与导出。每个任务的 MuJoCo XML 存在
-`runs/stage3/workspace/<robot>/<task>/mujoco/scene.xml`（已有旧版时为当前导出器版本目录，例如 `mujoco_v8/scene.xml`），Plan 与任务描述存于
+`data/runs/stage3/workspace/<robot>/<task>/mujoco/scene.xml`（已有旧版时为当前导出器版本目录，例如 `mujoco_v8/scene.xml`），Plan 与任务描述存于
 `task_context.md`，未经真实测量的物理先验存于 `hypotheses.json`；物理 Agent
 的独立试验存在 `physics/<run_id>/`。本轮批量进度和每任务错误写在
-`runs/stage3/batch_<run_id>/batch_manifest.json`。已完成且源文件哈希仍匹配的
+`data/runs/stage3/batch_<run_id>/batch_manifest.json`。已完成且源文件哈希仍匹配的
 导出可复用；旧版场景如已存在，将新场景写入当前导出器版本目录（目前为
 `mujoco_v8/`）而不覆盖历史记录。
 若已确认交付到 `data/processed`，可以使用
-`--runs-root data/processed --reuse-semantics-from runs/stage3/workspace`；
+`--runs-root data/processed --reuse-semantics-from data/runs/stage3/workspace`；
 结果写入 `data/processed/<robot>/stage3/<task>/mujoco/`，批次清单写入
 `data/processed/stage3/batch_<run_id>/`。仅复用与 Stage 2 Blend 哈希完全一致的
 历史语义分类；无法匹配的任务重新分类。所有任务碰撞体放在 MuJoCo 的
@@ -69,7 +69,7 @@ PYTHONPATH=src python -m real2sim.stage3.mujoco_export \
 安装项目后也可以使用：
 
 ```bash
-real2sim-stage3-export \
+real2sim tools stage3-export \
   --blend path/to/scene_02_blockout.blend \
   --output path/to/stage3/mujoco
 ```
@@ -102,8 +102,8 @@ Stage 3 预览默认使用 Stage 2 的四个参考相机，而不是自由相机
 
 ```bash
 PYTHONPATH=src mjpython -m real2sim.stage3.render_overview \
-  --scene runs/stage3/workspace/piper/<task>/mujoco_v8/scene.xml \
-  --output runs/stage3/workspace/piper/<task>/mujoco_v8/reference_preview \
+  --scene data/runs/stage3/workspace/piper/<task>/mujoco_v8/scene.xml \
+  --output data/runs/stage3/workspace/piper/<task>/mujoco_v8/reference_preview \
   --reference-views
 ```
 
@@ -131,14 +131,14 @@ Stage 2/Stage 3 视觉对照图。
 
 安装 `python -m pip install -e '.[sim,agent]'`，在 macOS 上确保同一 Python 环境
 有 `mjpython`（第三人称离屏渲染需要）。先给定只读假设 JSON，区分推测和实测；
-模板见 `tests/fixtures/stage3/code_as_policy_hypotheses.json`。真实世界测量必须附
+模板见 `dev/tests/fixtures/stage3/code_as_policy_hypotheses.json`。真实世界测量必须附
 可比的量、单位及实验条件，否则不应称为真实标定。
 
 ```bash
-real2sim-stage3-agent \
-  --scene tests/fixtures/stage3/code_as_policy_tabletop.xml \
-  --hypotheses tests/fixtures/stage3/code_as_policy_hypotheses.json \
-  --output runs/stage3/my_agent_run
+real2sim tools stage3-agent \
+  --scene dev/tests/fixtures/stage3/code_as_policy_tabletop.xml \
+  --hypotheses dev/tests/fixtures/stage3/code_as_policy_hypotheses.json \
+  --output data/runs/stage3/my_agent_run
 ```
 
 程序通过 Python `openai-codex` SDK 启动**独立临时 thread**。有自由物体时先只看
@@ -162,10 +162,10 @@ real2sim-stage3-agent \
 双夹块夹取测试可单独运行：
 
 ```bash
-real2sim-stage3-physics grasp \
-  --scene tests/fixtures/stage3/code_as_policy_tabletop.xml \
+real2sim tools stage3-physics grasp \
+  --scene dev/tests/fixtures/stage3/code_as_policy_tabletop.xml \
   --body blue_block --normal-forces 0.2 0.4 0.6 \
-  --jaw-friction 1.0 --seconds 0.4 --output runs/stage3/grasp_blue
+  --jaw-friction 1.0 --seconds 0.4 --output data/runs/stage3/grasp_blue
 ```
 
 程序在临时场景中给物体两侧添加带摩擦的方块，以侧向电机力夹紧、再用位置
@@ -177,7 +177,7 @@ real2sim-stage3-physics grasp \
 
 ## 物理探针 CLI
 
-`real2sim-stage3-physics` 面向已经生成的 MJCF 场景，专门用于让 Codex 或
+`real2sim tools stage3-physics` 面向已经生成的 MJCF 场景，专门用于让 Codex 或
 其他自动化程序做可重复的物理试验。它不修改原场景：`run` 只读取场景并
 输出报告，`patch` 将参数写到一个新的 XML 文件。
 
@@ -188,11 +188,11 @@ real2sim-stage3-physics grasp \
 原场景和候选场景：
 
 ```bash
-real2sim-stage3-physics objects --scene tests/fixtures/stage3/code_as_policy_tabletop.xml
-real2sim-stage3-physics try \
-  --scene tests/fixtures/stage3/code_as_policy_tabletop.xml \
+real2sim tools stage3-physics objects --scene dev/tests/fixtures/stage3/code_as_policy_tabletop.xml
+real2sim tools stage3-physics try \
+  --scene dev/tests/fixtures/stage3/code_as_policy_tabletop.xml \
   --body blue_block --mass-kg 0.05 \
-  --output runs/stage3/probes/blue_block_trial
+  --output data/runs/stage3/probes/blue_block_trial
 ```
 
 `try` 会输出**单份 JSON**，同时生成 `report.json` 和 `candidate.xml`；
@@ -203,19 +203,19 @@ real2sim-stage3-physics try \
 
 可以直接给 Codex 这样的提示词：
 
-> 在 `tests/fixtures/stage3/code_as_policy_tabletop.xml` 里找到 `blue_block`，
+> 在 `dev/tests/fixtures/stage3/code_as_policy_tabletop.xml` 里找到 `blue_block`，
 > 只试着把它的质量从 0.04 kg 改到 0.05 kg；用同样的力对比改动前后的反应，
-> 把报告放进 `runs/stage3/probes/codex_first_try`。不要覆盖原场景，
+> 把报告放进 `data/runs/stage3/probes/codex_first_try`。不要覆盖原场景，
 > 也不要把这次试验当作已完成的物理标定。
 
 ### 检查场景
 
 ```bash
-real2sim-stage3-physics inspect \
+real2sim tools stage3-physics inspect \
   --scene /path/to/stage3/mujoco/scene.xml
 ```
 
-`tests/fixtures/stage3/code_as_policy_tabletop.xml` 原样复制了
+`dev/tests/fixtures/stage3/code_as_policy_tabletop.xml` 原样复制了
 `code_as_policy/scenes/piper_tabletop.xml`，用于独立回归。`--attach-piper auto`
 （默认）也支持这个场景模板。该模板
 只有空的 `piper_mount`，CLI 会复用 `external/robot_control` 的 Piper 组装
@@ -246,24 +246,24 @@ real2sim-stage3-physics inspect \
 }
 ```
 
-运行后 stdout 是机器可读 JSON；传 `--output runs/stage3/probes/case_01`
+运行后 stdout 是机器可读 JSON；传 `--output data/runs/stage3/probes/case_01`
 还会保存 `report.json` 和 `trajectory.json`。报告包含每个 body 的位移、
 旋转、末速度、最大施力/力矩和检查是否通过；检查失败时 CLI 返回码为 `2`。
 
 ```bash
-real2sim-stage3-physics run \
-  --scene tests/fixtures/stage3/code_as_policy_tabletop.xml \
+real2sim tools stage3-physics run \
+  --scene dev/tests/fixtures/stage3/code_as_policy_tabletop.xml \
   --script /path/to/probe.json \
-  --output runs/stage3/probes/code_as_policy
+  --output data/runs/stage3/probes/code_as_policy
 ```
 
 如果暂时没有明确动作脚本，可以让 CLI 对场景中每个任务侧的自由物体、
 滑轨和铰链逐个复位后施加一组小力/小力矩（机械臂本体排除）：
 
 ```bash
-real2sim-stage3-physics auto \
-  --scene tests/fixtures/stage3/code_as_policy_tabletop.xml \
-  --output runs/stage3/probes/code_as_policy_auto
+real2sim tools stage3-physics auto \
+  --scene dev/tests/fixtures/stage3/code_as_policy_tabletop.xml \
+  --output data/runs/stage3/probes/code_as_policy_auto
 ```
 
 `auto` 会把固定 body 列入 `skipped_fixed_bodies`，把 Piper 本体列入
@@ -278,7 +278,7 @@ body 的所有直接 geom；标量摩擦只改滑动摩擦，保留每个 geom �
 三元数组可同时指定三者。原 XML 保留不变。这样 Codex 可以先看 `report.json`
 再决定下一轮参数，而不是让一次不稳定试验隐式覆盖场景。
 没有实测物理目标时，不应把通过 sanity check 的质量或摩擦值称为已标定。
-`tests/fixtures/stage3/code_as_policy_trial_patch.json` 是验证 CLI 功能的
+`dev/tests/fixtures/stage3/code_as_policy_trial_patch.json` 是验证 CLI 功能的
 候选数值，不作为真实物体参数的最终估计。
 
 `patch` 也接受 `position: [x,y,z]` 与 `quaternion: [w,x,y,z]`，对自由关节物体会同步更新
@@ -300,7 +300,7 @@ Stage 2 四视角/任务目标不符时才应改位置；若是碰撞代理形�
 ```
 
 ```bash
-real2sim-stage3-physics patch \
+real2sim tools stage3-physics patch \
   --scene /path/to/scene.xml \
   --patch-file /path/to/patch.json \
   --output /path/to/scene_tuned.xml

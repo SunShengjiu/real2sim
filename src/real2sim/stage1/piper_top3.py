@@ -13,7 +13,7 @@ from pathlib import Path
 from .initial_pose_batch import ALL_FRAMES
 from .metric_calibration import PIPER_TOP3_METHOD, metric_method
 from .piper_final import refine_task, write_gallery
-from .pipeline import sha256
+from .inference import sha256
 from .sim3_registration import ROOT
 
 
@@ -36,7 +36,7 @@ def scene_inputs(scene: str, initializations: Path, processed: Path) -> tuple[Pa
     seeds = ranked_seeds(initialization)
     manifest = json.loads((processed / "piper/stage1" / scene / "manifest.json").read_text(encoding="utf-8"))
     video = ROOT / "data/raw/piper" / f"{scene}.mp4"
-    model = ROOT / "asset/robot_surfaces/piper/surface_40000.npz"
+    model = ROOT / "data/assets/robot_surfaces/piper/surface_40000.npz"
     if (not video.is_file() or manifest.get("status") != "inference_complete"
             or initialization.get("video_sha256") != manifest.get("video_sha256")
             or sha256(video) != manifest["video_sha256"]
@@ -101,9 +101,9 @@ def publish_winner(scene: str, branches: list[tuple[dict, Path]], destination: P
     return result
 
 
-def batch(initializations: Path = ROOT / "runs/piper_initial_128_review/piper",
-          processed: Path = ROOT / "data/processed", output: Path = ROOT / "runs/piper_stage1_top3",
-          top1: Path = ROOT / "runs/piper_stage1_final_128", workers: int = 4,
+def batch(initializations: Path = ROOT / "data/runs/piper_initial_128_review/piper",
+          processed: Path = ROOT / "data/processed", output: Path = ROOT / "data/runs/piper_stage1_top3",
+          top1: Path = ROOT / "data/runs/piper_stage1_final_128", workers: int = 4,
           only: str | None = None, progress=print) -> list[dict]:
     scenes = sorted(path.stem for path in (ROOT / "data/raw/piper").glob("*.mp4"))
     if only:
@@ -164,15 +164,15 @@ def batch(initializations: Path = ROOT / "runs/piper_initial_128_review/piper",
     return completed
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Refine automatically ranked Piper top-3 seeds and choose best")
-    parser.add_argument("--initializations", type=Path, default=ROOT / "runs/piper_initial_128_review/piper")
+    parser.add_argument("--initializations", type=Path, default=ROOT / "data/runs/piper_initial_128_review/piper")
     parser.add_argument("--processed", type=Path, default=ROOT / "data/processed")
-    parser.add_argument("--output", type=Path, default=ROOT / "runs/piper_stage1_top3")
-    parser.add_argument("--top1", type=Path, default=ROOT / "runs/piper_stage1_final_128")
+    parser.add_argument("--output", type=Path, default=ROOT / "data/runs/piper_stage1_top3")
+    parser.add_argument("--top1", type=Path, default=ROOT / "data/runs/piper_stage1_final_128")
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--only")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     batch(args.initializations, args.processed, args.output, args.top1, args.workers, args.only)
 
 

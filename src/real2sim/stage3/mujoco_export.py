@@ -161,23 +161,28 @@ def _stage2_delivery(path: Path) -> dict[str, Any]:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if manifest.get("accepted") is not True or not manifest.get("evaluation", {}).get("passed"):
         raise ValueError(f"Stage 2 delivery was not accepted: {manifest_path}")
-    scene = Path(manifest["scene"]).expanduser().resolve(strict=True)
+    scene = Path(manifest["scene"]).expanduser()
+    scene = (scene if scene.is_absolute() else manifest_path.parent / scene).resolve(strict=True)
     if scene != (manifest_path.parent / "final.blend").resolve():
         raise ValueError("Stage 2 delivery must reference its own geometry/final.blend")
     if hashlib.sha256(scene.read_bytes()).hexdigest() != manifest["scene_sha256"]:
         raise ValueError("Stage 2 delivery Blend does not match scene_sha256")
     task_dir = manifest_path.parent.parent
-    robot = task_dir.parent.parent.name
+    robot = manifest.get("robot", task_dir.parent.parent.name)
     if robot not in {"piper", "franka"}:
         raise ValueError(f"unsupported Stage 2 robot: {robot}")
-    plan = task_dir / "plan" / "plan.md"
+    plan = Path(manifest.get("plan", task_dir / "plan" / "plan.md"))
+    if not plan.is_absolute():
+        plan = manifest_path.parent / plan
     if not plan.is_file():
         raise FileNotFoundError(f"missing Stage 2 plan: {plan}")
     rgb_paths = [Path(view["render_rgb"]) for view in manifest["evaluation"]["views"]]
+    rgb_paths = [path if path.is_absolute() else manifest_path.parent / path for path in rgb_paths]
     if len(rgb_paths) != 4 or any(not image.is_file() for image in rgb_paths):
         raise FileNotFoundError("Stage 2 delivery needs four existing evaluated RGB renders")
     return {"manifest": manifest_path, "scene": scene, "robot": robot,
-            "task": task_dir.name.replace("_", " "), "plan": plan, "rgb_paths": rgb_paths}
+            "task": manifest.get("task_description", task_dir.name.replace("_", " ")),
+            "plan": plan, "rgb_paths": rgb_paths}
 
 
 def _run_blender_payload(config: ExportConfig) -> dict[str, Any]:
@@ -191,7 +196,7 @@ def _run_blender_payload(config: ExportConfig) -> dict[str, Any]:
         script_path.write_text(script, encoding="utf-8")
         process = __import__("subprocess").run(
             [str(blender), "--background", str(config.blend.resolve()), "--python-exit-code", "1",
-             "--python", str(script_path)], capture_output=True, text=True, timeout=900)
+             "--python", str(script_path)], capture_output=True, text=True, timeout=900, encoding="utf-8", errors="replace")
         if process.returncode != 0 or not output.is_file():
             raise RuntimeError(
                 "Blender extraction failed: " + (process.stdout + process.stderr)[-5000:])

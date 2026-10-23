@@ -40,7 +40,7 @@ Franka 初始化耗时约 17.7 秒，配准约 375.4 秒，最终 loss 为 0.106
 
 ## 证据与限制
 
-本机完整记录保存在独立目录 `runs/stage1_cpu_validation.i0I8HC/`，该目录被 Git 忽略：
+本机完整记录保存在独立目录 `data/runs/stage1_cpu_validation.i0I8HC/`，该目录被 Git 忽略：
 
 - `report.json`：环境、各阶段结果、交付文件 SHA256 和验证边界。
 - `final-tests.xml`：最终测试报告；`environment.json`：CLI 和本地模型前置条件检查。
