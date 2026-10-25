@@ -42,13 +42,27 @@ dev/       辅助脚本和测试
 
 ## 安装与使用
 
-项目使用 Python 3.11。Windows CPU 环境已验证离线测试、Blender 渲染和 MuJoCo 检查；真实视频与模型权重的完整流程仍待验证。Linux x86_64 上可使用 NVIDIA CUDA 加速感知推理。Blender 需另行安装。克隆本仓库及固定版本依赖后安装：
+项目使用 Python 3.11。Ubuntu x86_64 + NVIDIA RTX 5080 的安装目标固定为 **PyTorch 2.8.0 / torchvision 0.23.0 / CUDA 12.8**，支持 Blackwell；Windows 保留 CPU 开发依赖。Blender 需另行安装，最小感知测试不调用 Blender。克隆本仓库及固定版本依赖后安装：
 
 ```bash
-git clone --recurse-submodules https://github.com/SunShengjiu/real2sim.git
+git clone --recurse-submodules --branch fix/nvidia-cuda-setup https://github.com/SunShengjiu/real2sim.git
 cd real2sim
 uv sync --locked --python 3.11 --extra local --extra sim --extra agent --extra dev
 ```
+
+### Ubuntu + RTX 5080：先验证感知模型
+
+准备 Git、uv 和支持 RTX 5080 / CUDA 12.8 的 NVIDIA 驱动，先确认 `nvidia-smi` 正常。然后在仓库根目录执行：
+
+```bash
+uv run --no-sync real2sim models download --source mirror
+uv run --no-sync real2sim models check --load
+uv run --no-sync real2sim perceive --video /absolute/path/to/task.mp4 --robot piper --output data/runs/rtx5080-check
+```
+
+镜像下载无需 Hugging Face 登录，固定镜像提交并校验官方文件大小和 SHA256。也可把已验证的两份权重复制到 `data/models/` 对应目录。视频需自行复制或提供，至少 32 帧；示例路径需要替换，输出目录必须尚不存在。默认设备为 CUDA，若复用了其他机器的 `.env`，将 `VGGT_OMEGA_DEVICE`、`SAM3_DEVICE` 都设为 `cuda`。详情见 [NVIDIA 安装与验收](docs/LOCAL_INFERENCE.md)。
+
+模型检查会实际运行一个 CUDA 运算以识别架构不兼容，并报告显卡、计算能力和可用显存；`--load` 再串行加载并释放两份权重。正式视频规格保持 32 帧、512×288，显存不足时明确报错。当前未在 RTX 5080 实机完成该视频验收，拉取后以上述命令和实际报告为准。
 
 `sim` extra 在本目录中用于 Stage 3 的 MuJoCo 物理检查和机器人模型装配。`external/robot_control` 保留为上游依赖：Stage 1 读取其机器人几何，Stage 3 复用其模型装配；主项目的策略开发、随机化评测和真机部署代码已剥离。
 

@@ -6,7 +6,7 @@ import argparse
 import importlib.util
 import json
 
-from .config import (MODEL_INFO, MODEL_WEIGHTS, ROOT, backend_settings, checkpoint_digest,
+from .config import (MODEL_INFO, MODEL_MIRRORS, MODEL_WEIGHTS, ROOT, backend_settings, checkpoint_digest,
                      create_sam3, create_vggt, local_metadata, release_backend, require_device)
 
 
@@ -49,8 +49,19 @@ def check_models(names, *, load=False) -> dict:
                     errors.append(f"{import_name} is not installed from the pinned editable checkout")
             if importlib.util.find_spec("torch") is not None:
                 import torch
-                require_device(torch, settings["device"])
                 record.update(torch_version=torch.__version__, cuda_version=torch.version.cuda)
+                selected = require_device(torch, settings["device"])
+                if selected.type == "cuda":
+                    properties = torch.cuda.get_device_properties(selected)
+                    free, total = torch.cuda.mem_get_info(selected)
+                    record["gpu"] = {"name": properties.name,
+                                     "compute_capability": [properties.major, properties.minor],
+                                     "free_bytes": free, "total_bytes": total}
+                    # CUDA availability alone does not prove that this wheel
+                    # contains kernels for the selected GPU (e.g. RTX 5080).
+                    torch.ones(1, device=selected).add_(1)
+                    torch.cuda.synchronize(selected)
+                    record["cuda_kernel_verified"] = True
             if checkpoint.is_file():
                 record["model"] = local_metadata(name, checkpoint, settings["device"])
                 if not record["model"]["checkpoint_matches_official"]:
@@ -72,16 +83,21 @@ def check_models(names, *, load=False) -> dict:
             "models": records, "inference_verified": False}
 
 
-def download_models(names) -> dict:
-    """Use existing HF credentials; never request access or accept terms for the user."""
+def download_models(names, *, source="official") -> dict:
+    """Download pinned weights; public mirrors never receive HF credentials."""
+    if source not in ("official", "mirror"):
+        raise ValueError(f"Unsupported weight source: {source}")
     from huggingface_hub import get_hf_file_metadata, hf_hub_download, hf_hub_url
     from huggingface_hub.errors import GatedRepoError, HfHubHTTPError
 
     records = {}
     for name in names:
         weight = MODEL_WEIGHTS[name]
+        origin = weight if source == "official" else MODEL_MIRRORS[name]
+        request_options = {"token": False} if source == "mirror" else {}
         record = records[name] = {
-            "repository": weight["repo"], "revision": weight["revision"],
+            "source": source, "repository": origin["repo"], "revision": origin["revision"],
+            "official_repository": weight["repo"], "official_revision": weight["revision"],
             "expected_bytes": weight["size"], "expected_sha256": weight["sha256"],
             "status": "failed", "errors": [],
         }
@@ -98,13 +114,14 @@ def download_models(names) -> dict:
                     raise FileExistsError(f"Existing checkpoint has different contents: {checkpoint}")
             else:
                 filename = MODEL_INFO[name][2]
-                url = hf_hub_url(weight["repo"], filename, revision=weight["revision"])
-                metadata = get_hf_file_metadata(url)
+                url = hf_hub_url(origin["repo"], filename, revision=origin["revision"])
+                metadata = get_hf_file_metadata(url, **request_options)
                 if metadata.etag != weight["sha256"] or metadata.size != weight["size"]:
-                    raise ValueError(f"Official metadata differs from the pinned {name} checkpoint")
-                # Authorization is checked above, before creating output/cache files.
-                hf_hub_download(repo_id=weight["repo"], filename=filename,
-                                revision=weight["revision"], local_dir=str(checkpoint.parent))
+                    raise ValueError(f"Download metadata differs from the pinned official {name} checkpoint")
+                # Check access and metadata before creating output/cache files.
+                hf_hub_download(repo_id=origin["repo"], filename=filename,
+                                revision=origin["revision"], local_dir=str(checkpoint.parent),
+                                **request_options)
                 if (checkpoint.stat().st_size != weight["size"] or
                         checkpoint_digest(checkpoint) != weight["sha256"]):
                     raise ValueError(f"Downloaded checkpoint failed size/SHA256 verification: {checkpoint}")
@@ -129,10 +146,12 @@ def main(argv=None) -> int:
     check = subparsers.add_parser("check", help="check dependencies, weights, source revision and device")
     check.add_argument("--models", nargs="+", choices=("vggt", "sam3"), default=["vggt", "sam3"])
     check.add_argument("--load", action="store_true", help="also load each local model, then release it")
-    download = subparsers.add_parser("download", help="download official weights using existing Hugging Face access")
+    download = subparsers.add_parser("download", help="download pinned weights from official access or public mirrors")
     download.add_argument("--models", nargs="+", choices=("vggt", "sam3"), default=["vggt", "sam3"])
+    download.add_argument("--source", choices=("official", "mirror"), default="official",
+                          help="select official access or public mirrors; always verify official SHA256")
     args = parser.parse_args(argv)
-    report = (download_models(args.models) if args.command == "download" else
+    report = (download_models(args.models, source=args.source) if args.command == "download" else
               check_models(args.models, load=args.load))
     print(json.dumps(report, indent=2))
     return 0 if report["passed"] else 1

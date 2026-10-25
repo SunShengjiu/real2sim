@@ -1,6 +1,6 @@
 # 本地感知模型安装与最小复现
 
-首个完整推理验收目标是 **Linux x86_64、NVIDIA CUDA、Python 3.11**。源码以固定提交的子模块放在本仓库，checkpoint 放入 `data/models/`，也可以挂载到对应目录。默认使用本地 VGGT-Ω 和 SAM3；仅显式选择 `remote` 时连接远端服务。
+首个完整推理验收目标是 **Ubuntu x86_64、NVIDIA RTX 5080、Python 3.11、PyTorch 2.8.0 / CUDA 12.8**。源码以固定提交的子模块放在本仓库，checkpoint 放入 `data/models/`，也可以挂载到对应目录。默认使用本地 VGGT-Ω 和 SAM3；仅显式选择 `remote` 时连接远端服务。
 
 当前本机为 Windows CPU 开发环境，已经完成离线代码、机器人资产、Blender 和 MuJoCo 检查，尚未完成真实模型推理。安装成功、模型检查成功与真实视频复现通过是三个独立的验收步骤。CPU/MPS 可显式配置，真实推理的性能与内存需求仍需实测。
 
@@ -11,9 +11,11 @@ git submodule update --init --recursive
 uv sync --locked --python 3.11 --extra local --extra sim --extra dev
 ```
 
-当前按源码 checkout + editable 安装使用，不承诺独立 wheel 的机器人资产可用性。`uv.lock` 固定依赖解析结果；`uv sync --locked` 遇到过期锁文件会报错，不更新版本。Linux x86_64 的本地推理使用 PyTorch 2.6.0 / torchvision 0.21.0 的 CUDA 12.4 wheel，宿主需要兼容驱动；其他平台从 PyPI 解析对应 wheel。
+当前按源码 checkout + editable 安装使用，不承诺独立 wheel 的机器人资产可用性。`uv.lock` 固定依赖解析结果；`uv sync --locked` 遇到过期锁文件会报错，不更新版本。Linux x86_64 的本地推理使用 PyTorch 2.8.0 / torchvision 0.23.0 的 CUDA 12.8 wheel；Windows 继续选择 PyTorch 2.6.0 / torchvision 0.21.0 CPU wheel，其他平台保留原有版本。安装依据见 [PyTorch 官方版本矩阵](https://pytorch.org/get-started/previous-versions/#v280)。RTX 5080 属于 Blackwell，不能沿用原 PyTorch 2.6 / CUDA 12.4 环境。
 
-精简 Linux 系统还需 OpenCV 的 GL/GLib 动态库，以及无窗口 MuJoCo 渲染使用的 EGL/Mesa。Debian 13 的无 GPU 容器验证使用以下系统包；其他发行版应安装对应包，较旧系统的 GLib 包名通常是 `libglib2.0-0`。这些库不提供 NVIDIA 驱动或 CUDA 验收。
+Ubuntu 机器先确认 `nvidia-smi` 能识别 RTX 5080，驱动支持该卡及 CUDA 12.8。PyTorch wheel 和锁定依赖提供 CUDA 用户态运行库，不需要为本流程单独安装另一套 CUDA Toolkit。旧环境建议在拉取后重新执行上述 `uv sync --locked`，不要用系统 Python 代替项目环境。新拉取时默认设备为 `cuda`；若自行复制了旧 `.env`，需检查两个 `*_DEVICE` 都为 `cuda`。
+
+精简 Linux 系统还需 OpenCV 的 GL/GLib 动态库，以及无窗口 MuJoCo 渲染使用的 EGL/Mesa。Ubuntu 24.04/26.04 和 Debian 13 使用以下包名；Ubuntu 22.04 将 `libglib2.0-0t64` 替换为 `libglib2.0-0`，见 [Ubuntu GLib 包列表](https://packages.ubuntu.com/glib2.0)。这些库不提供 NVIDIA 驱动或 CUDA 验收。
 
 ```bash
 sudo apt-get update
@@ -48,9 +50,17 @@ uv sync --locked --python 3.11 --extra sim --extra dev
 uv run --no-sync python -m pytest dev/tests/unit dev/tests/integration -m 'not models' -ra
 ```
 
-## 2. 申请并准备权重
+## 2. 准备权重
 
-先阅读[第三方来源与许可](THIRD_PARTY.md)，分别在官方 Hugging Face 页面申请访问并接受条款：
+阅读[第三方来源与许可](THIRD_PARTY.md)后，可显式选择公开镜像，不需要 Hugging Face 账号或 Token：
+
+```bash
+uv run --no-sync real2sim models download --source mirror
+```
+
+镜像固定为 [1kaiser/vggt-omega-jax](https://huggingface.co/1kaiser/vggt-omega-jax/blob/main/vggt_omega_1b_512.pt) 和 [cubert-gmbh/sam3](https://huggingface.co/cubert-gmbh/sam3)。下载器对元数据及实际文件都核对项目记录的官方大小和 SHA256，镜像请求明确不携带 Hugging Face 凭据；镜像不可用或校验失败时明确报错，不隐式切换来源。镜像只是分发渠道，原模型许可仍适用。
+
+也可使用默认的官方来源。分别在官方 Hugging Face 页面申请访问并接受条款：
 
 - [facebook/VGGT-Omega](https://huggingface.co/facebook/VGGT-Omega)：选择 `vggt_omega_1b_512.pt`。416 reproduction checkpoint 不用于当前 512 输入契约。
 - [facebook/sam3](https://huggingface.co/facebook/sam3)：选择 `sam3.pt`，不混用 SAM3.1 checkpoint。
@@ -103,7 +113,7 @@ SAM3 远端对应 `SAM3_BACKEND=remote`、`SAM3_HOST`、`SAM3_PORT`、`SAM3_PROT
 
 ## 4. 检查与最小示例
 
-检查配置、文件、源码版本和设备；`--load` 进一步串行加载并释放两个本地模型，但不代替真实推理：
+检查配置、文件、源码版本和设备。CUDA 检查报告 GPU 名称、计算能力、总显存及当前可用显存，并实际执行一个小型 CUDA 运算，避免把“能发现显卡”误当成 PyTorch 已支持该架构；`--load` 进一步串行加载并释放两个本地模型，但不代替真实视频推理：
 
 ```bash
 uv run --no-sync real2sim models check
@@ -139,7 +149,7 @@ uv run --no-sync python -m pytest dev/tests/integration -m models
 
 ## Windows 本机开发环境
 
-Windows x64 的锁定依赖选择 PyTorch 2.6.0 CPU wheel，Linux x86_64 继续使用 CUDA 12.4 wheel。本项目的场景构建/物理探针不需要运动控制 IK，因此 `sim` extra 不安装 Pinocchio。
+Windows x64 的锁定依赖选择 PyTorch 2.6.0 CPU wheel，Linux x86_64 使用 PyTorch 2.8.0 CUDA 12.8 wheel。本项目的场景构建/物理探针不需要运动控制 IK，因此 `sim` extra 不安装 Pinocchio。
 
 本机隔离环境位于仓库 `.venv/`；便携 Blender 位于 `.venv/tools/`，路径保存在忽略的 `.env` 中。可以直接调用，不需要修改系统 PATH 或 PowerShell 执行策略：
 
@@ -168,4 +178,8 @@ $env:BLENDER_BIN = (Resolve-Path '.venv/tools/blender-4.5.15-windows-x64/blender
 
 2026-10-24 顶层布局归并后重新完整回归：291 passed、3 skipped、1 deselected。测试由 `pyproject.toml` 从 `dev/tests/` 自动发现，资产、模型和输出分别位于 `data/assets/`、`data/models/`、`data/runs/`。跳过的是两个 POSIX 权限测试和未提供 `RSR_E2E_CONFIG` 的真实端到端测试；真实 checkpoint 视频测试未选中。编码与日志处理已显式使用 UTF-8。唯一安装命令为 `real2sim`，24 个命令帮助检查通过；直接从虚拟环境启动时，子工具也使用同一 Python 环境。
 
-模型环境检查仅报告两个官方 checkpoint 缺失。没有下载权重或运行真实 VGGT-Ω/SAM3 推理；没有验证 Radeon GPU 加速、真实视频全流程或论文完整结果。本机 CPU 开发环境安装完成不等于上述验证完成。
+上述 2026-10-24 检查时两个 checkpoint 尚未准备。2026-10-25 已从公开镜像补齐 8.03 GB 权重，两个文件的大小和 SHA256 均匹配项目固定的官方版本，CPU `models check` 通过。额外的元数据检查确认 VGGT 的 1,411 个参数条目和 SAM3 图像模型所需的 1,118 个条目尺寸匹配；现有 Piper 视频完整解码 706 帧，可采样 32 张 512×288 RGB。上述结构检查未执行真实权重前向推理，不能代替 NVIDIA 实机验收。
+
+本机为 AMD 核显且当时可用提交内存不足，未运行普通权重加载、Radeon 加速、真实视频全流程或论文完整结果。Ubuntu/RTX 5080 仍需依次运行 `models check --load`、`perceive` 及上面的 `-m models` 测试，以实际推理报告和峰值显存为准。
+
+2026-10-25 NVIDIA 适配后的 Windows CPU 离线回归：303 passed、3 skipped、1 deselected。`uv lock --check` 和 Linux x86_64 / Python 3.11 的安装预演通过，确认选择 `torch==2.8.0+cu128`、`torchvision==0.23.0+cu128`；两个公开镜像的固定提交元数据也重新通过官方大小/SHA256 比对。上述结果不包含 RTX 5080 实机安装或 GPU 视频推理。

@@ -12,7 +12,14 @@ requires-python = ">=3.10,<3.13"
 dependencies = ["numpy>=1.24", "opencv-python>=4.8", "trimesh>=4", "pycollada>=0.8", "python-dotenv>=1", "PyYAML>=6"]
 
 [project.optional-dependencies]
-local = ["numpy>=1.26,<2", "opencv-python<4.12", "torch==2.6.0", "torchvision==0.21.0", "vggt-omega==0.0.1", "ultralytics==8.4.160", "clip", "timm>=1", "huggingface-hub>=0.27"]
+local = [
+    "numpy>=1.26,<2", "opencv-python<4.12",
+    "torch==2.8.0; sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "torchvision==0.23.0; sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "torch==2.6.0; sys_platform != 'linux' or platform_machine != 'x86_64'",
+    "torchvision==0.21.0; sys_platform != 'linux' or platform_machine != 'x86_64'",
+    "vggt-omega==0.0.1", "ultralytics==8.4.160", "clip", "timm>=1", "huggingface-hub>=0.27",
+]
 sim = ["mujoco>=3.2.7", "Pillow>=10", "robot-control"]
 agent = ["openai-codex>=0.154.0"]
 dev = ["pytest>=8"]
@@ -40,12 +47,12 @@ vggt-omega = { path = "external/vggt_omega", editable = true }
 ultralytics = { path = "external/ultralytics", editable = true }
 robot-control = { path = "external/robot_control", editable = true }
 clip = { url = "https://github.com/ultralytics/CLIP/archive/7ffa84b3bfa40c42ecc1c77147a855e69cb2dd40.zip" }
-torch = [{ index = "pytorch-cu124", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" }, { index = "pytorch-cpu", marker = "sys_platform == 'win32'" }]
-torchvision = [{ index = "pytorch-cu124", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" }, { index = "pytorch-cpu", marker = "sys_platform == 'win32'" }]
+torch = [{ index = "pytorch-cu128", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" }, { index = "pytorch-cpu", marker = "sys_platform == 'win32'" }]
+torchvision = [{ index = "pytorch-cu128", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" }, { index = "pytorch-cpu", marker = "sys_platform == 'win32'" }]
 
 [[tool.uv.index]]
-name = "pytorch-cu124"
-url = "https://download.pytorch.org/whl/cu124"
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
 explicit = true
 
 [[tool.uv.index]]

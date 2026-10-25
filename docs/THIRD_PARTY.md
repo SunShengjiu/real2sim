@@ -11,6 +11,8 @@
 | CLIP 文本分词依赖 | [ultralytics/CLIP](https://github.com/ultralytics/CLIP/tree/7ffa84b3bfa40c42ecc1c77147a855e69cb2dd40)，固定提交源码归档（锁文件记录 SHA256） | fork 使用 [AGPL-3.0 LICENSE](https://github.com/ultralytics/CLIP/blob/7ffa84b3bfa40c42ecc1c77147a855e69cb2dd40/LICENSE)，继承 OpenAI CLIP 来源并包含 BPE 词表；保留上游版权与许可。 |
 | robot-control | [HY-LiYihan/robot_control](https://github.com/HY-LiYihan/robot_control)，固定 gitlink `6016dd5f20d2146a28e425ce77dfb9430f1173`（公开分支 `codex/fr3-urdf-paths`） | [子模块 LICENSE](../external/robot_control/LICENSE)；vendor 资产分别适用其各自授权，不能由控制包许可证一并覆盖。 |
 
+权重也可通过 `real2sim models download --source mirror` 显式使用公开镜像：[VGGT-Ω](https://huggingface.co/1kaiser/vggt-omega-jax/blob/main/vggt_omega_1b_512.pt)、[SAM3](https://huggingface.co/cubert-gmbh/sam3)。镜像地址和提交见 `MODEL_MIRRORS`，校验标准始终是 `MODEL_WEIGHTS` 记录的官方文件大小和 SHA256。公开镜像的下载不需要官方模型库访问申请，但不改变原许可和使用范围；SAM3 镜像保留上游 SAM License，VGGT-Ω 许可全文也保留在本仓库固定源码的 `external/vggt_omega/LICENSE`。
+
 ## 现有机器人资产
 
 机器人控制子模块引用 AgileX 的 [piper_sdk](https://github.com/agilexrobotics/piper_sdk)、[piper_isaac_sim](https://github.com/agilexrobotics/piper_isaac_sim)、[agx_arm_urdf](https://github.com/agilexrobotics/agx_arm_urdf)，还包含 `vendor/fr3_d435i/`。`piper_sdk` 当前 checkout 保留 MIT 声明，`agx_arm_urdf` 保留其 MIT 文件；当前 `piper_isaac_sim` checkout 未发现许可证文件，不能据此假设其中 mesh、URDF 或贴图可以再分发。GitHub API 在 2026-10-14 对该仓库返回 `license: null`，仓库内的 `piper_description/package.xml` 仍写有 `TODO: License declaration`。各供应商的 mesh、URDF、贴图与 SDK 需要独立核对再分发权利，模型实现许可证不覆盖这些文件。

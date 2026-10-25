@@ -36,6 +36,19 @@ MODEL_WEIGHTS = {
     },
 }
 
+# Public copies verified against MODEL_WEIGHTS on 2026-10-25. A mirror is
+# selected explicitly; its contents must still match the official size/hash.
+MODEL_MIRRORS = {
+    "vggt": {
+        "repo": "1kaiser/vggt-omega-jax",
+        "revision": "a8c3a718e0cf78e9e4c6847229efea793d37f060",
+    },
+    "sam3": {
+        "repo": "cubert-gmbh/sam3",
+        "revision": "6d25af14a085ff9d3e1342c35bae7c87de4811f4",
+    },
+}
+
 
 def backend_settings(name: str) -> dict:
     load_dotenv(ROOT / ".env", override=False)

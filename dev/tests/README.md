@@ -16,9 +16,11 @@ The retained suite covers perception contracts, backprojection/registration, met
 
 ## Real checkpoint inference
 
-Follow [LOCAL_INFERENCE.md](../../docs/LOCAL_INFERENCE.md) to install local model dependencies and official weights on Linux CUDA, then supply a video with at least 32 frames:
+Follow [LOCAL_INFERENCE.md](../../docs/LOCAL_INFERENCE.md) to install the locked PyTorch 2.8 / CUDA 12.8 environment on Ubuntu x86_64 (including RTX 5080). Fetch weights explicitly from official access or hash-verified public mirrors, check real CUDA kernels and model loading, then supply a video with at least 32 frames:
 
 ```bash
+uv run --no-sync real2sim models download --source mirror
+uv run --no-sync real2sim models check --load
 export RSR_MODEL_TEST_VIDEO=/path/to/task.mp4
 uv run --no-sync python -m pytest dev/tests/integration -m models -ra
 ```

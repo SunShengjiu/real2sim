@@ -11,7 +11,7 @@ blender: null
 perception:
   vggt_backend: local
   sam3_backend: local
-  device: cpu
+  device: cuda
   vggt_model_dir: ../../data/models/vggt_omega
   sam3_model_dir: ../../data/models/sam3
 agent:
